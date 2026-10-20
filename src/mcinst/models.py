@@ -55,4 +55,45 @@ class VersionResult(BaseModel):
     sha1: Sha1
     source: str
     url: str
+    upstream_url: str | None = None
+    size: int | None = None
     diagnostics: list[str] = Field(default_factory=list)
+
+
+class DownloadInfo(BaseModel):
+    url: HttpUrl
+    sha1: Sha1 | None = None
+    size: int | None = Field(default=None, ge=0, strict=True)
+    path: str | None = None
+
+
+class AssetIndexInfo(DownloadInfo):
+    id: str = Field(min_length=1)
+    sha1: Sha1
+    size: int = Field(ge=0, strict=True)
+
+
+class AssetObject(BaseModel):
+    hash: Sha1
+    size: int = Field(ge=0, strict=True)
+
+
+class AssetIndex(BaseModel):
+    objects: dict[str, AssetObject]
+    virtual: bool = Field(default=False, strict=True)
+    map_to_resources: bool = Field(default=False, strict=True)
+
+
+class AssetIndexResult(BaseModel):
+    index: AssetIndex
+    source: str
+    url: str
+    diagnostics: list[str] = Field(default_factory=list)
+
+
+class LoggingFile(DownloadInfo):
+    id: str = Field(min_length=1)
+
+
+class ClientLogging(BaseModel):
+    file: LoggingFile

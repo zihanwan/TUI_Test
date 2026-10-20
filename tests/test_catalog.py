@@ -11,25 +11,29 @@ from mcinst.errors import MetadataError, VersionNotFound
 from mcinst.sources import MANIFEST_URL, SourcePolicy, metadata_candidates
 
 DETAIL_URL = "https://piston-meta.mojang.com/v1/packages/example/test.json"
-DETAIL = json.dumps({
-    "id": "1.20.1",
-    "javaVersion": {"component": "java-runtime-gamma", "majorVersion": 17},
-    "libraries": [],
-    "futureUpstreamField": {"keep": True},
-}).encode()
+DETAIL = json.dumps(
+    {
+        "id": "1.20.1",
+        "javaVersion": {"component": "java-runtime-gamma", "majorVersion": 17},
+        "libraries": [],
+        "futureUpstreamField": {"keep": True},
+    }
+).encode()
 
 
 def manifest(detail: bytes = DETAIL) -> dict:
     return {
         "latest": {"release": "1.20.1", "snapshot": "sample-snapshot"},
-        "versions": [{
-            "id": "1.20.1",
-            "type": "release",
-            "url": DETAIL_URL,
-            "sha1": hashlib.sha1(detail).hexdigest(),
-            "releaseTime": "2023-06-12T12:00:00Z",
-            "time": "2023-06-12T12:00:00Z",
-        }],
+        "versions": [
+            {
+                "id": "1.20.1",
+                "type": "release",
+                "url": DETAIL_URL,
+                "sha1": hashlib.sha1(detail).hexdigest(),
+                "releaseTime": "2023-06-12T12:00:00Z",
+                "time": "2023-06-12T12:00:00Z",
+            }
+        ],
     }
 
 

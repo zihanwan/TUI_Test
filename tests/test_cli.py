@@ -32,27 +32,31 @@ class CliTests(unittest.TestCase):
         self.assertIn("模拟失败", error.getvalue())
 
     def test_json_filtering_preserves_manifest_order(self):
-        result = ManifestResult.model_validate({
-            "source": "official",
-            "url": "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
-            "manifest": {
-                "latest": {"release": "26.1", "snapshot": "sample-snapshot"},
-                "versions": [
-                    {
-                        "id": version_id,
-                        "type": kind,
-                        "url": "https://piston-meta.mojang.com/test.json",
-                        "sha1": "0" * 40,
-                        "releaseTime": "2026-01-01T00:00:00Z",
-                        "time": "2026-01-01T00:00:00Z",
-                    }
-                    for version_id, kind in (
-                        ("sample-snapshot", "snapshot"), ("26.1", "release"),
-                        ("1.21.1", "release"), ("1.9", "release"),
-                    )
-                ],
-            },
-        })
+        result = ManifestResult.model_validate(
+            {
+                "source": "official",
+                "url": "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
+                "manifest": {
+                    "latest": {"release": "26.1", "snapshot": "sample-snapshot"},
+                    "versions": [
+                        {
+                            "id": version_id,
+                            "type": kind,
+                            "url": "https://piston-meta.mojang.com/test.json",
+                            "sha1": "0" * 40,
+                            "releaseTime": "2026-01-01T00:00:00Z",
+                            "time": "2026-01-01T00:00:00Z",
+                        }
+                        for version_id, kind in (
+                            ("sample-snapshot", "snapshot"),
+                            ("26.1", "release"),
+                            ("1.21.1", "release"),
+                            ("1.9", "release"),
+                        )
+                    ],
+                },
+            }
+        )
         with patch("mcinst.catalog.CatalogService.manifest", return_value=result):
             output = io.StringIO()
             with redirect_stdout(output):
@@ -61,8 +65,6 @@ class CliTests(unittest.TestCase):
             self.assertEqual([v["id"] for v in data["versions"]], ["26.1", "1.21.1"])
             output = io.StringIO()
             with redirect_stdout(output):
-                self.assertEqual(
-                    main(["versions", "--json", "--all", "--search", "snapshot"]), 0
-                )
+                self.assertEqual(main(["versions", "--json", "--all", "--search", "snapshot"]), 0)
             data = json.loads(output.getvalue())
             self.assertEqual([v["id"] for v in data["versions"]], ["sample-snapshot"])

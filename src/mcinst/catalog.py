@@ -6,7 +6,15 @@ import httpx
 from pydantic import ValidationError
 
 from mcinst.errors import MetadataError, VersionNotFound
-from mcinst.models import ManifestResult, VersionManifest, VersionMetadata, VersionResult
+from mcinst.models import (
+    AssetIndex,
+    AssetIndexInfo,
+    AssetIndexResult,
+    ManifestResult,
+    VersionManifest,
+    VersionMetadata,
+    VersionResult,
+)
 from mcinst.sources import MANIFEST_URL, SourcePolicy, metadata_candidates
 
 T = TypeVar("T")
@@ -21,7 +29,11 @@ class CatalogService:
         self.policy = policy
 
     async def _fetch(
-        self, url: str, parse: Callable[[bytes], T], expected_sha1: str | None = None
+        self,
+        url: str,
+        parse: Callable[[bytes], T],
+        expected_sha1: str | None = None,
+        expected_size: int | None = None,
     ) -> tuple[T, str, str, list[str]]:
         failures: list[str] = []
         for candidate in metadata_candidates(url, self.policy):
@@ -34,6 +46,8 @@ class CatalogService:
                             raise ValueError("元数据超过 16 MiB 限制")
                         body.extend(chunk)
                 raw = bytes(body)
+                if expected_size is not None and len(raw) != expected_size:
+                    raise ValueError("元数据大小校验失败")
                 if expected_sha1 and hashlib.sha1(raw).hexdigest() != expected_sha1:
                     raise ValueError("元数据 SHA-1 校验失败")
                 return parse(raw), candidate.name, candidate.url, failures
@@ -59,17 +73,26 @@ class CatalogService:
         if entry is None:
             raise VersionNotFound(f"版本不存在：{version_id}")
 
-        def parse(raw: bytes) -> VersionMetadata:
+        def parse(raw: bytes) -> tuple[VersionMetadata, int]:
             metadata = VersionMetadata.model_validate_json(raw)
             if metadata.id != entry.id:
                 raise ValueError("版本详情的 ID 与版本清单不一致")
-            return metadata
+            return metadata, len(raw)
 
-        metadata, source, url, diagnostics = await self._fetch(str(entry.url), parse, entry.sha1)
+        payload, source, url, diagnostics = await self._fetch(str(entry.url), parse, entry.sha1)
+        metadata, size = payload
         return VersionResult(
             metadata=metadata,
             sha1=entry.sha1,
             source=source,
             url=url,
+            upstream_url=str(entry.url),
+            size=size,
             diagnostics=listing.diagnostics + diagnostics,
         )
+
+    async def asset_index(self, info: AssetIndexInfo) -> AssetIndexResult:
+        index, source, url, diagnostics = await self._fetch(
+            str(info.url), AssetIndex.model_validate_json, info.sha1, info.size
+        )
+        return AssetIndexResult(index=index, source=source, url=url, diagnostics=diagnostics)

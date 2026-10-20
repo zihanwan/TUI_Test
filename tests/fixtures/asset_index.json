@@ -1,0 +1,16 @@
+{
+  "objects": {
+    "minecraft/sounds/a.ogg": {
+      "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 12
+    },
+    "minecraft/sounds/b.ogg": {
+      "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 12
+    },
+    "minecraft/lang/en_us.json": {
+      "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size": 24
+    }
+  }
+}

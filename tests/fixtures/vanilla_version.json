@@ -1,0 +1,113 @@
+{
+  "id": "test-vanilla",
+  "type": "release",
+  "mainClass": "example.Client",
+  "javaVersion": {
+    "component": "example-runtime",
+    "majorVersion": 17
+  },
+  "downloads": {
+    "client": {
+      "url": "https://piston-data.mojang.com/v1/objects/dddddddddddddddddddddddddddddddddddddddd/client.jar",
+      "sha1": "dddddddddddddddddddddddddddddddddddddddd",
+      "size": 1024
+    }
+  },
+  "assetIndex": {
+    "id": "test-assets",
+    "url": "https://piston-meta.mojang.com/v1/packages/example/assets.json",
+    "sha1": "93aaccbe53a2384f50fa7fd49ee6d9855634bc8f",
+    "size": 367
+  },
+  "libraries": [
+    {
+      "name": "org.example:common:1.0",
+      "downloads": {
+        "artifact": {
+          "url": "https://libraries.minecraft.net/org/example/common/1.0/common-1.0.jar",
+          "path": "org/example/common/1.0/common-1.0.jar",
+          "sha1": "cccccccccccccccccccccccccccccccccccccccc",
+          "size": 100
+        }
+      }
+    },
+    {
+      "name": "org.example:windows-only:1.0",
+      "rules": [
+        {
+          "action": "allow",
+          "os": {
+            "name": "windows"
+          }
+        }
+      ],
+      "downloads": {
+        "artifact": {
+          "url": "https://libraries.minecraft.net/org/example/windows-only/1.0/windows-only-1.0.jar",
+          "path": "org/example/windows-only/1.0/windows-only-1.0.jar",
+          "sha1": "cccccccccccccccccccccccccccccccccccccccc",
+          "size": 100
+        }
+      }
+    },
+    {
+      "name": "org.example:native-lib:1.0",
+      "natives": {
+        "windows": "natives-windows-${arch}",
+        "linux": "natives-linux",
+        "osx": "natives-osx"
+      },
+      "extract": {
+        "exclude": [
+          "META-INF/"
+        ]
+      },
+      "downloads": {
+        "artifact": {
+          "url": "https://libraries.minecraft.net/org/example/native-lib/1.0/native-lib-1.0.jar",
+          "path": "org/example/native-lib/1.0/native-lib-1.0.jar",
+          "sha1": "cccccccccccccccccccccccccccccccccccccccc",
+          "size": 100
+        },
+        "classifiers": {
+          "natives-windows-32": {
+            "url": "https://libraries.minecraft.net/org/example/native-lib/1.0/native-lib-1.0-natives-windows-32.jar",
+            "path": "org/example/native-lib/1.0/native-lib-1.0-natives-windows-32.jar",
+            "sha1": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "size": 100
+          },
+          "natives-windows-64": {
+            "url": "https://libraries.minecraft.net/org/example/native-lib/1.0/native-lib-1.0-natives-windows-64.jar",
+            "path": "org/example/native-lib/1.0/native-lib-1.0-natives-windows-64.jar",
+            "sha1": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "size": 100
+          },
+          "natives-linux": {
+            "url": "https://libraries.minecraft.net/org/example/native-lib/1.0/native-lib-1.0-natives-linux.jar",
+            "path": "org/example/native-lib/1.0/native-lib-1.0-natives-linux.jar",
+            "sha1": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "size": 100
+          },
+          "natives-osx": {
+            "url": "https://libraries.minecraft.net/org/example/native-lib/1.0/native-lib-1.0-natives-osx.jar",
+            "path": "org/example/native-lib/1.0/native-lib-1.0-natives-osx.jar",
+            "sha1": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "size": 100
+          }
+        }
+      }
+    }
+  ],
+  "logging": {
+    "client": {
+      "argument": "-Dlog4j.configurationFile=${path}",
+      "type": "log4j2-xml",
+      "file": {
+        "id": "test-client.xml",
+        "url": "https://piston-data.mojang.com/v1/objects/ffffffffffffffffffffffffffffffffffffffff/client.xml",
+        "sha1": "ffffffffffffffffffffffffffffffffffffffff",
+        "size": 42
+      }
+    }
+  }
+}

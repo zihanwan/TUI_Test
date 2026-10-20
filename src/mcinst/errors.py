@@ -8,3 +8,7 @@ class MetadataError(McinstError):
 
 class VersionNotFound(McinstError):
     """The selected version is absent from the current manifest."""
+
+
+class PlanError(McinstError):
+    """The input cannot be resolved into a complete supported installation plan."""
