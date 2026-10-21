@@ -1,7 +1,8 @@
 # mcinst
 
-Python Minecraft Java 版实例下载与安装工具。当前已实现原版版本查询与安装计划：
-可预览目标平台需要的文件和后处理步骤；尚未实现实例安装与 TUI。
+Python Minecraft Java 版实例下载与安装工具。已实现版本查询、计划预览、原版实例文件安装与离线校验。
+支持有界并发、来源回退、文件级恢复、原生库解压和资源映射。
+Java 管理、登录、游戏启动、加载器与 TUI 留在后续阶段。
 
 ## 开发运行
 
@@ -16,6 +17,8 @@ uv run mcinst inspect 1.20.1
 uv run mcinst inspect 1.20.1 --source official --json
 uv run mcinst plan 1.20.1 --os linux --arch x86_64 --files
 uv run mcinst plan 1.20.1 --os windows --arch x86_64 --os-version 10.0 --json
+uv run mcinst install 1.20.1 --directory instances/vanilla-1.20.1-linux --os linux --arch x86_64 --os-version 6.0 --source official
+uv run mcinst verify instances/vanilla-1.20.1-linux
 uv run python -m mcinst --help
 ```
 
@@ -25,7 +28,16 @@ uv run python -m mcinst --help
 查询失败退出码为 1；参数错误为 2；用户中断为 130。
 
 默认使用 HTTPX 的环境代理设置，网络超时为 20 秒、连接超时为 10 秒。
-当前不提供持久缓存、同源重试或实例文件下载；不要把查询成功理解为安装成功。
+CLI 元数据查询当前不提供持久缓存或同源重试；不要把查询成功理解为安装成功。
+单文件下载 API 已支持同源重试、来源回退、流式校验及原子提交，
+接口和边界见 [下载传输说明](docs/download-transfer.md)。
+
+`install` 创建独立实例目录，游戏文件位于其 `minecraft/` 子目录。
+示例明确下载 Linux/x86_64 目标；为本机下载时可省略平台参数。
+默认总并发 8、每逻辑来源并发 4，可以通过 `--concurrency` / `--per-source` 调整。
+首次保存固定计划，重跑相同命令会复用已校验文件，补齐失败、缺失或损坏的文件与派生资源。
+`verify` 离线检查受管理文件。当前支持完整文件恢复，尚不支持 Range 字节级续传。
+完整接口、状态和 Review 入口见 [Vanilla 安装说明](docs/vanilla-install.md)。
 
 `plan` 仅读取版本清单、版本详情和资源索引，不写实例目录。
 文件路径相对于实例的 Minecraft 根目录，JSON 包含规范上游地址、候选来源、
@@ -48,8 +60,8 @@ uv run ruff format --check .
 测试运行器采用 Python 标准库 unittest，不额外依赖 pytest。
 `versions` / `inspect` / `plan` 可用于手动验证真实源，不作为每日离线测试的一部分。
 
-本次开发验证：43 项离线测试、Ruff 检查和格式检查通过，项目虚拟环境入口可用。
-当前终端访问官方源、BMCLAPI 均遇到 DNS 解析失败，真实源计划生成尚未验证。
+本次开发验证：89 项离线测试、Ruff 检查和格式检查通过，包含 CLI 端到端安装和恢复。
+当前终端受网络权限限制，完整真实源下载仍待在本机验收。
 Python 3.12 的最低版本验证及跨平台实际安装验证仍待完成。
 已有虚拟环境时，可以直接验证，避免触发 uv 联网解析：
 
@@ -72,7 +84,18 @@ Python 3.12 的最低版本验证及跨平台实际安装验证仍待完成。
 | `src/mcinst/installation/models.py` | 实例请求、平台、文件和安装计划模型 |
 | `src/mcinst/installation/rules.py` | 平台及功能规则判定 |
 | `src/mcinst/installation/planner.py` | 文件展开、去重、冲突检查与规划服务 |
+| `src/mcinst/downloads/transfer.py` | 单文件下载、流式校验、重试和原子提交 |
+| `src/mcinst/downloads/retry.py` | 有限退避及 Retry-After 策略 |
+| `src/mcinst/downloads/files.py` | 目标路径检查及已有文件校验 |
+| `src/mcinst/downloads/scheduler.py` | 有界任务队列、汇总进度与失败取消 |
+| `src/mcinst/downloads/limits.py` | 每逻辑来源并发配额 |
+| `src/mcinst/installation/installer.py` | 原版安装编排与失败恢复 |
+| `src/mcinst/installation/postprocess.py` | 受控原生库解压及资源映射 |
+| `src/mcinst/installation/state.py` | 固定计划、状态与进程锁 |
+| `src/mcinst/installation/verify.py` | 离线文件校验 |
 | `docs/install-plan.md` | 当前功能边界、数据流与 Review 说明 |
+| `docs/download-transfer.md` | 下载传输模块的接口、故障处理与 Review 说明 |
+| `docs/vanilla-install.md` | 完整原版下载、恢复与校验的使用说明 |
 | `docs/roadmap.md` | 开发顺序、验收条件与后续设计 |
 
 核心不依赖界面库。Textual 在接入 TUI 时添加；新职责出现后再拆分目录。
