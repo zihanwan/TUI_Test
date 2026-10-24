@@ -6,6 +6,7 @@ from pathlib import Path
 
 from mcinst.downloads.errors import DownloadError
 from mcinst.downloads.models import DownloadProgress, DownloadResult
+from mcinst.downloads.settings import DEFAULT_CONCURRENCY
 from mcinst.downloads.transfer import ArtifactDownloader
 from mcinst.installation.models import Artifact
 
@@ -29,7 +30,7 @@ class BatchResult:
 
 
 class DownloadScheduler:
-    def __init__(self, downloader: ArtifactDownloader, concurrency: int = 8):
+    def __init__(self, downloader: ArtifactDownloader, concurrency: int = DEFAULT_CONCURRENCY):
         if type(concurrency) is not int or not 1 <= concurrency <= 64:
             raise ValueError("总并发数必须在 1～64 之间")
         self.downloader = downloader

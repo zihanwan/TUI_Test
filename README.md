@@ -19,6 +19,7 @@ uv run mcinst plan 1.20.1 --os linux --arch x86_64 --files
 uv run mcinst plan 1.20.1 --os windows --arch x86_64 --os-version 10.0 --json
 uv run mcinst install 1.20.1 --directory instances/vanilla-1.20.1-linux --os linux --arch x86_64 --os-version 6.0 --source official
 uv run mcinst verify instances/vanilla-1.20.1-linux
+uv run mcinst migrate-layout instances/vanilla-1.20.1-linux
 uv run python -m mcinst --help
 ```
 
@@ -32,9 +33,13 @@ CLI 元数据查询当前不提供持久缓存或同源重试；不要把查询�
 单文件下载 API 已支持同源重试、来源回退、流式校验及原子提交，
 接口和边界见 [下载传输说明](docs/download-transfer.md)。
 
-`install` 创建独立实例目录，游戏文件位于其 `minecraft/` 子目录。
+`install` 创建独立实例目录，新实例游戏文件位于其 `.minecraft/` 子目录。
+JSON 与 JAR 同放在 `.minecraft/versions/<版本ID>/`，assets 与 libraries 位于游戏根目录。
+第三方启动器添加 Minecraft 游戏文件夹时选择 `.minecraft/`，而非含 instance.json 的实例外层。
+旧实例的 minecraft/ 仍可读取；migrate-layout 可离线更名为 .minecraft/。
+格式依据和第三方适配边界见 [启动器兼容布局](docs/launcher-layout.md)。
 示例明确下载 Linux/x86_64 目标；为本机下载时可省略平台参数。
-默认总并发 8、每逻辑来源并发 4，可以通过 `--concurrency` / `--per-source` 调整。
+默认总并发 16、每逻辑来源并发 8，可以通过 `--concurrency` / `--per-source` 调整。
 首次保存固定计划，重跑相同命令会复用已校验文件，补齐失败、缺失或损坏的文件与派生资源。
 `verify` 离线检查受管理文件。当前支持完整文件恢复，尚不支持 Range 字节级续传。
 完整接口、状态和 Review 入口见 [Vanilla 安装说明](docs/vanilla-install.md)。
@@ -60,8 +65,8 @@ uv run ruff format --check .
 测试运行器采用 Python 标准库 unittest，不额外依赖 pytest。
 `versions` / `inspect` / `plan` 可用于手动验证真实源，不作为每日离线测试的一部分。
 
-本次开发验证：89 项离线测试、Ruff 检查和格式检查通过，包含 CLI 端到端安装和恢复。
-当前终端受网络权限限制，完整真实源下载仍待在本机验收。
+本次开发验证：96 项离线测试、Ruff 检查和格式检查通过，包含安装、恢复和新旧布局迁移。
+现有真实 1.20.1 实例的 3631 个文件在布局迁移前后均通过校验，第三方启动器启动尚未验证。
 Python 3.12 的最低版本验证及跨平台实际安装验证仍待完成。
 已有虚拟环境时，可以直接验证，避免触发 uv 联网解析：
 
@@ -89,13 +94,16 @@ Python 3.12 的最低版本验证及跨平台实际安装验证仍待完成。
 | `src/mcinst/downloads/files.py` | 目标路径检查及已有文件校验 |
 | `src/mcinst/downloads/scheduler.py` | 有界任务队列、汇总进度与失败取消 |
 | `src/mcinst/downloads/limits.py` | 每逻辑来源并发配额 |
+| `src/mcinst/downloads/settings.py` | CLI 与 API 共用的并发默认值 |
 | `src/mcinst/installation/installer.py` | 原版安装编排与失败恢复 |
 | `src/mcinst/installation/postprocess.py` | 受控原生库解压及资源映射 |
 | `src/mcinst/installation/state.py` | 固定计划、状态与进程锁 |
 | `src/mcinst/installation/verify.py` | 离线文件校验 |
+| `src/mcinst/installation/layout.py` | 新旧根目录解析与离线布局迁移 |
 | `docs/install-plan.md` | 当前功能边界、数据流与 Review 说明 |
 | `docs/download-transfer.md` | 下载传输模块的接口、故障处理与 Review 说明 |
 | `docs/vanilla-install.md` | 完整原版下载、恢复与校验的使用说明 |
+| `docs/launcher-layout.md` | 启动器文件结构、目录选择和迁移依据 |
 | `docs/roadmap.md` | 开发顺序、验收条件与后续设计 |
 
 核心不依赖界面库。Textual 在接入 TUI 时添加；新职责出现后再拆分目录。

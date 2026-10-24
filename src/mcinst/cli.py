@@ -10,10 +10,13 @@ import httpx
 
 from mcinst import __version__
 from mcinst.catalog import CatalogService
+from mcinst.downloads.settings import DEFAULT_CONCURRENCY, DEFAULT_PER_SOURCE
 from mcinst.errors import McinstError
 from mcinst.installation.installer import InstallProgress, VanillaInstaller
+from mcinst.installation.layout import migrate_layout
 from mcinst.installation.models import InstanceSpec, TargetPlatform
 from mcinst.installation.planner import InstallPlanService
+from mcinst.installation.state import finish_thread
 from mcinst.installation.verify import verify_instance
 from mcinst.sources import SourcePolicy
 
@@ -70,26 +73,63 @@ def parser() -> argparse.ArgumentParser:
         "install", parents=[shared, target_options], help="下载并组装原版实例"
     )
     install.add_argument("--directory", type=Path, required=True, help="独立实例目录")
-    install.add_argument("--concurrency", type=concurrency_int, default=8)
-    install.add_argument("--per-source", type=concurrency_int, default=4)
+    install.add_argument(
+        "--concurrency",
+        type=concurrency_int,
+        default=DEFAULT_CONCURRENCY,
+        help=f"总下载并发，默认 {DEFAULT_CONCURRENCY}",
+    )
+    install.add_argument(
+        "--per-source",
+        type=concurrency_int,
+        default=DEFAULT_PER_SOURCE,
+        help=f"每来源并发，默认 {DEFAULT_PER_SOURCE}",
+    )
     verify = commands.add_parser("verify", help="离线校验实例的受管理文件")
     verify.add_argument("directory", type=Path)
     verify.add_argument("--json", action="store_true")
+    migrate = commands.add_parser("migrate-layout", help="将旧实例游戏目录迁移为 .minecraft")
+    migrate.add_argument("directory", type=Path)
+    migrate.add_argument("--json", action="store_true")
     return root
 
 
 async def run(args: argparse.Namespace) -> int:
-    if args.command == "verify":
-        result = await asyncio.to_thread(verify_instance, args.directory)
+    if args.command == "migrate-layout":
+        result = await finish_thread(migrate_layout, args.directory)
         if args.json:
             print(
                 json.dumps(
-                    {**asdict(result), "directory": str(result.directory), "ok": result.ok},
+                    {
+                        "directory": str(result.directory),
+                        "minecraft_directory": str(result.minecraft_directory),
+                        "changed": result.changed,
+                    },
                     ensure_ascii=False,
                     indent=2,
                 )
             )
         else:
+            label = "布局迁移完成" if result.changed else "已采用 .minecraft 布局"
+            print(f"{label}：{result.minecraft_directory}")
+        return 0
+    if args.command == "verify":
+        result = await asyncio.to_thread(verify_instance, args.directory)
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        **asdict(result),
+                        "directory": str(result.directory),
+                        "minecraft_directory": str(result.minecraft_directory),
+                        "ok": result.ok,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+        else:
+            print(f"游戏根目录：{result.minecraft_directory}")
             print(f"状态：{result.status}；检查 {result.checked_files} 个文件")
             print(
                 f"缺失 {len(result.missing)}，不匹配 {len(result.mismatched)}，"

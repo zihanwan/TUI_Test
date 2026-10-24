@@ -21,7 +21,7 @@
 旧式原生库没有声明 ARM64 支持时，规划器会明确拒绝，不自动替换目标或 Java。
 
 `--source auto` 为 BMCLAPI 优先、官方回退。若 BMCLAPI 不稳定，可先使用 official。
-`--concurrency` 默认 8，`--per-source` 默认 4，两者均限定为 1～64。
+`--concurrency` 默认 16，`--per-source` 默认 8，两者均限定为 1～64。
 单文件重试或回退不会增加并发上限，退避等待期间释放来源配额。
 同一来源的 CDN 重定向仍计入原逻辑来源的配额。
 
@@ -45,7 +45,8 @@ verify 不联网、不修复、不改写游戏文件，异常或未完成状态�
 | `installation/state.py` | 固定计划、安装记录、原子状态写入及实例进程锁 |
 | `installation/postprocess.py` | 目标用途检查、受控 ZIP 解压及资源映射 |
 | `installation/verify.py` | 受管理文件的离线校验 |
-| `cli.py` | install / verify 命令及展示 |
+| `installation/layout.py` | 新旧游戏根目录解析与离线迁移 |
+| `cli.py` | install / verify / migrate-layout 命令及展示 |
 | `tests/test_scheduler.py` | 并发上限、退避配额、失败取消 |
 | `tests/test_installer.py` | 包含真实 ZIP 内容的合成端到端安装与恢复测试 |
 
@@ -56,12 +57,16 @@ instances/vanilla-1.20.1-linux/
     .mcinst.lock
     instance.json
     install-plan.json
-    minecraft/
+    .minecraft/
         versions/
         libraries/
         assets/
         resources/  (仅在资源索引要求时生成)
 ```
+
+`.minecraft/versions/<id>/` 内含同名 JSON 与 JAR。第三方启动器添加游戏文件夹时，
+应选择 `.minecraft/` 这一层；旧实例仍可保留 minecraft/，或使用 migrate-layout 更名。
+详细格式依据与适配边界见 [启动器兼容布局](launcher-layout.md)。
 
 `.mcinst.lock` 是进程锁文件，安装结束也保留其 inode；锁随文件句柄关闭释放。
 Windows 使用 msvcrt 字节锁，其他受支持桌面系统使用 flock。
@@ -69,7 +74,7 @@ Windows 使用 msvcrt 字节锁，其他受支持桌面系统使用 flock。
 网络文件系统的锁行为没有实际验证，推荐使用本地目录。
 
 `install-plan.json` 固定首次解析的全部文件和后处理声明。
-`instance.json` 保存计划的 SHA-256、安装状态、此次已下载与复用数量、派生文件哈希和错误信息。
+`instance.json` 保存计划的 SHA-256、游戏根目录名、安装状态、此次已下载与复用数量、派生文件哈希和错误信息。
 文件写入采用同目录临时文件、fsync、原子替换。计划文件校验不匹配或状态损坏时拒绝覆盖。
 目标非空且没有本工具安装记录时也拒绝安装，避免混入已有启动器目录。
 
@@ -111,11 +116,12 @@ Windows 使用 msvcrt 字节锁，其他受支持桌面系统使用 flock。
 
 ## 验证记录与支持边界
 
-89 项离线测试通过，包含 CLI 完整安装、离线 verify、文件修复、取消恢复、来源切换、
+96 项离线测试通过，包含 CLI 完整安装、离线 verify、文件修复、取消恢复、来源切换、布局迁移、
 任务并发上限、损坏 ZIP、路径穿越、符号链接、解压大小限制及实例锁。
 Ruff 检查、格式检查及 git diff --check 通过。
 合成端到端测试真实写入目录并展开 ZIP，但不等同于完整真实游戏版本的联网安装验收。
-本会话网络限制仍在，完整真实源下载需在本机验收。
+用户已完成真实 1.20.1 原版下载，本轮也对现有实例迁移前后各校验 3631 文件并通过。
+第三方启动器实际识别和启动仍待验收。
 Python 3.12 最低版本、Windows 锁分支和跨平台实际游戏运行尚未验证。
 
 原版支持范围继承规划器边界：独立原版、带 assetIndex 的资源布局及可解释的平台规则。

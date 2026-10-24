@@ -28,6 +28,8 @@ class InstanceRecord(BaseModel):
     schema_version: Literal[1] = 1
     status: Literal["installing", "installed", "failed", "cancelled"]
     plan_sha256: str
+    # Records written before layout tracking used minecraft/. Keep their default.
+    minecraft_directory: Literal["minecraft", ".minecraft"] = "minecraft"
     downloaded_files: int = 0
     reused_files: int = 0
     derived_files: list[ManagedFile] = Field(default_factory=list)
@@ -84,7 +86,11 @@ def load_state(directory: Path) -> tuple[InstallPlan, InstanceRecord] | None:
 def save_plan(directory: Path, plan: InstallPlan) -> InstanceRecord:
     raw = plan.model_dump_json(indent=2).encode()
     atomic_write(directory / "install-plan.json", raw)
-    record = InstanceRecord(status="installing", plan_sha256=hashlib.sha256(raw).hexdigest())
+    record = InstanceRecord(
+        status="installing",
+        plan_sha256=hashlib.sha256(raw).hexdigest(),
+        minecraft_directory=".minecraft",
+    )
     write_record(directory, record)
     return record
 

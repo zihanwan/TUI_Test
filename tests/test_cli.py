@@ -4,12 +4,29 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
-from mcinst.cli import main
+from mcinst.cli import main, parser
 from mcinst.errors import MetadataError
 from mcinst.models import ManifestResult
 
 
 class CliTests(unittest.TestCase):
+    def test_default_download_limits_and_overrides(self):
+        options = parser().parse_args(["install", "1.20.1", "--directory", "instances/test"])
+        self.assertEqual((options.concurrency, options.per_source), (16, 8))
+        options = parser().parse_args(
+            [
+                "install",
+                "1.20.1",
+                "--directory",
+                "instances/test",
+                "--concurrency",
+                "24",
+                "--per-source",
+                "12",
+            ]
+        )
+        self.assertEqual((options.concurrency, options.per_source), (24, 12))
+
     def test_no_command_shows_help_without_network(self):
         output = io.StringIO()
         with redirect_stdout(output):

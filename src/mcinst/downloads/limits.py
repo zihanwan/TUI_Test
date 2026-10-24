@@ -1,11 +1,13 @@
 import asyncio
 from contextlib import asynccontextmanager
 
+from mcinst.downloads.settings import DEFAULT_PER_SOURCE
+
 
 class SourceLimiter:
     """One logical source budget shared across artifacts and their retries."""
 
-    def __init__(self, limit: int = 4):
+    def __init__(self, limit: int = DEFAULT_PER_SOURCE):
         if type(limit) is not int or not 1 <= limit <= 64:
             raise ValueError("每来源并发数必须在 1～64 之间")
         self.limit = limit

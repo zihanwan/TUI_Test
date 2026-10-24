@@ -5,6 +5,7 @@ from mcinst.downloads.errors import DownloadError
 from mcinst.downloads.files import check_target
 from mcinst.installation.errors import InstallationError
 from mcinst.installation.installer import check_minecraft_root
+from mcinst.installation.layout import game_root
 from mcinst.installation.postprocess import digest_file, validate_plan
 from mcinst.installation.state import load_state
 
@@ -12,6 +13,7 @@ from mcinst.installation.state import load_state
 @dataclass(frozen=True)
 class VerifyResult:
     directory: Path
+    minecraft_directory: Path
     status: str
     checked_files: int
     missing: tuple[str, ...]
@@ -32,7 +34,7 @@ def verify_instance(directory: Path) -> VerifyResult:
             raise InstallationError("该目录尚无安装记录")
         plan, record = state
         validate_plan(plan)
-        root = directory / "minecraft"
+        root = game_root(directory, record)
         check_minecraft_root(root)
         missing, mismatched, unverified = [], [], []
         files = [*plan.artifacts, *record.derived_files]
@@ -54,6 +56,7 @@ def verify_instance(directory: Path) -> VerifyResult:
                 mismatched.append(expected.path)
         return VerifyResult(
             directory=directory,
+            minecraft_directory=root,
             status=record.status,
             checked_files=len(files),
             missing=tuple(missing),

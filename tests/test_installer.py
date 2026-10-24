@@ -19,6 +19,7 @@ from mcinst.downloads import RetryPolicy
 from mcinst.downloads.errors import DownloadError, DownloadFailed
 from mcinst.installation.errors import InstallationError
 from mcinst.installation.installer import VanillaInstaller
+from mcinst.installation.layout import migrate_layout
 from mcinst.installation.models import InstanceSpec, TargetPlatform
 from mcinst.installation.state import finish_thread, instance_lock, load_state
 from mcinst.installation.verify import verify_instance
@@ -156,12 +157,21 @@ class InstallerTests(unittest.IsolatedAsyncioTestCase):
         result.downloader.retry = RetryPolicy(attempts_per_source=1)
         return result
 
+    def make_legacy(self):
+        (self.directory / ".minecraft").rename(self.directory / "minecraft")
+        record = self.directory / "instance.json"
+        content = json.loads(record.read_text())
+        content.pop("minecraft_directory")
+        record.write_text(json.dumps(content))
+
     async def test_complete_install_and_offline_verify(self):
         server = FixtureServer()
         events = []
         async with httpx.AsyncClient(transport=httpx.MockTransport(server.handle)) as client:
             result = await self.installer(client).install(self.spec, self.directory, events.append)
         root = result.minecraft_directory
+        self.assertEqual(root.name, ".minecraft")
+        self.assertEqual(load_state(self.directory)[1].minecraft_directory, ".minecraft")
         self.assertEqual((root / "versions/test-vanilla/test-vanilla.jar").read_bytes(), b"client")
         self.assertEqual(
             (root / "versions/test-vanilla/natives/native/libtest.so").read_bytes(), b"native"
@@ -175,6 +185,102 @@ class InstallerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.derived_files, 3)
         self.assertEqual(events[-1].stage, "postprocessing")
         self.assertEqual(list(self.directory.rglob("*.part")), [])
+
+    async def test_legacy_layout_is_verified_and_reused_without_migration(self):
+        server = FixtureServer()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(server.handle)) as client:
+            installer = self.installer(client)
+            await installer.install(self.spec, self.directory)
+            self.make_legacy()
+            self.assertTrue(verify_instance(self.directory).ok)
+            server.visited.clear()
+            server.forbid_metadata = True
+            result = await installer.install(self.spec, self.directory)
+        self.assertEqual(result.minecraft_directory.name, "minecraft")
+        self.assertEqual(result.reused_files, 7)
+        self.assertEqual(server.visited, [])
+        self.assertFalse((self.directory / ".minecraft").exists())
+
+    async def test_layout_migration_preserves_files_and_pinned_plan(self):
+        server = FixtureServer()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(server.handle)) as client:
+            installer = self.installer(client)
+            await installer.install(self.spec, self.directory)
+            self.make_legacy()
+            original_plan = (self.directory / "install-plan.json").read_bytes()
+            old_jar = self.directory / "minecraft/versions/test-vanilla/test-vanilla.jar"
+            original_inode = old_jar.stat().st_ino
+            saves = self.directory / "minecraft/saves"
+            saves.mkdir()
+            (saves / "user.dat").write_bytes(b"user-data")
+            migrated = migrate_layout(self.directory)
+            self.assertTrue(migrated.changed)
+            self.assertEqual(migrated.minecraft_directory.name, ".minecraft")
+            self.assertFalse((self.directory / "minecraft").exists())
+            jar = migrated.minecraft_directory / "versions/test-vanilla/test-vanilla.jar"
+            self.assertEqual(jar.stat().st_ino, original_inode)
+            self.assertEqual(jar.read_bytes(), b"client")
+            self.assertEqual(
+                (migrated.minecraft_directory / "saves/user.dat").read_bytes(), b"user-data"
+            )
+            self.assertEqual((self.directory / "install-plan.json").read_bytes(), original_plan)
+            self.assertTrue(verify_instance(self.directory).ok)
+            self.assertFalse(migrate_layout(self.directory).changed)
+            server.visited.clear()
+            result = await installer.install(self.spec, self.directory)
+        self.assertEqual(result.reused_files, 7)
+        self.assertEqual(server.visited, [])
+
+    async def test_layout_migration_refuses_to_merge_two_existing_roots(self):
+        server = FixtureServer()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(server.handle)) as client:
+            await self.installer(client).install(self.spec, self.directory)
+        self.make_legacy()
+        other = self.directory / ".minecraft"
+        other.mkdir()
+        (other / "user.txt").write_bytes(b"keep")
+        original_record = (self.directory / "instance.json").read_bytes()
+        with self.assertRaisesRegex(InstallationError, "同时存在"):
+            migrate_layout(self.directory)
+        self.assertEqual((self.directory / "instance.json").read_bytes(), original_record)
+        self.assertEqual((other / "user.txt").read_bytes(), b"keep")
+        self.assertTrue(verify_instance(self.directory).ok)
+
+    async def test_layout_migration_rolls_back_if_record_write_fails(self):
+        server = FixtureServer()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(server.handle)) as client:
+            await self.installer(client).install(self.spec, self.directory)
+        self.make_legacy()
+        original_record = (self.directory / "instance.json").read_bytes()
+        with patch("mcinst.installation.layout.write_record", side_effect=OSError("disk error")):
+            with self.assertRaisesRegex(InstallationError, "迁移失败"):
+                migrate_layout(self.directory)
+        self.assertEqual((self.directory / "instance.json").read_bytes(), original_record)
+        self.assertFalse((self.directory / ".minecraft").exists())
+        self.assertTrue(verify_instance(self.directory).ok)
+
+    async def test_layout_migration_can_finish_an_interrupted_rename(self):
+        server = FixtureServer()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(server.handle)) as client:
+            await self.installer(client).install(self.spec, self.directory)
+        self.make_legacy()
+        (self.directory / "minecraft").rename(self.directory / ".minecraft")
+        with self.assertRaisesRegex(InstallationError, "migrate-layout"):
+            verify_instance(self.directory)
+        self.assertTrue(migrate_layout(self.directory).changed)
+        self.assertTrue(verify_instance(self.directory).ok)
+
+    async def test_layout_migration_rejects_symlinked_game_root(self):
+        server = FixtureServer()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(server.handle)) as client:
+            await self.installer(client).install(self.spec, self.directory)
+        self.make_legacy()
+        external = self.base / "external-game"
+        (self.directory / "minecraft").rename(external)
+        (self.directory / "minecraft").symlink_to(external, target_is_directory=True)
+        with self.assertRaisesRegex(InstallationError, "符号链接"):
+            migrate_layout(self.directory)
+        self.assertTrue((external / "versions/test-vanilla/test-vanilla.jar").is_file())
 
     async def test_repeat_reuses_all_files_and_repairs_derived_outputs(self):
         server = FixtureServer()
@@ -262,7 +368,7 @@ class InstallerTests(unittest.IsolatedAsyncioTestCase):
                         await self.installer(client).install(self.spec, directory)
                 self.assertEqual(load_state(directory)[1].status, "failed")
                 self.assertFalse(
-                    (directory / "minecraft/versions/test-vanilla/natives/good.so").exists()
+                    (directory / ".minecraft/versions/test-vanilla/natives/good.so").exists()
                 )
                 self.assertFalse((self.base / "escape").exists())
 
@@ -318,7 +424,7 @@ class InstallerTests(unittest.IsolatedAsyncioTestCase):
             installer = self.installer(client)
             await installer.install(self.spec, self.directory)
             original = (self.directory / "install-plan.json").read_bytes()
-            (self.directory / "minecraft/versions/test-vanilla/test-vanilla.jar").unlink()
+            (self.directory / ".minecraft/versions/test-vanilla/test-vanilla.jar").unlink()
 
         visited = []
 
@@ -338,7 +444,7 @@ class InstallerTests(unittest.IsolatedAsyncioTestCase):
         async with httpx.AsyncClient(transport=httpx.MockTransport(server.handle)) as client:
             installer = self.installer(client)
             await installer.install(self.spec, self.directory)
-            alias = self.directory / "minecraft/resources/minecraft/test.txt"
+            alias = self.directory / ".minecraft/resources/minecraft/test.txt"
             alias.unlink()
             external = self.base / "external.txt"
             external.write_bytes(b"keep")
@@ -355,7 +461,7 @@ class InstallerTests(unittest.IsolatedAsyncioTestCase):
             with patch("mcinst.installation.postprocess.MAX_NATIVE_BYTES", 1):
                 with self.assertRaisesRegex(InstallationError, "大小超过限制"):
                     await self.installer(client).install(self.spec, self.directory)
-        self.assertFalse((self.directory / "minecraft/versions/test-vanilla/natives").exists())
+        self.assertFalse((self.directory / ".minecraft/versions/test-vanilla/natives").exists())
         self.assertEqual(load_state(self.directory)[1].status, "failed")
 
     async def test_cancellation_waits_for_filesystem_thread(self):

@@ -8,7 +8,9 @@ from mcinst.downloads import ArtifactDownloader
 from mcinst.downloads.files import resolve_root
 from mcinst.downloads.limits import SourceLimiter
 from mcinst.downloads.scheduler import BatchProgress, DownloadScheduler
+from mcinst.downloads.settings import DEFAULT_CONCURRENCY, DEFAULT_PER_SOURCE
 from mcinst.installation.errors import InstallationError
+from mcinst.installation.layout import game_root
 from mcinst.installation.models import InstallPlan, InstanceSpec
 from mcinst.installation.planner import InstallPlanService
 from mcinst.installation.postprocess import postprocess, validate_plan
@@ -41,7 +43,13 @@ class InstallResult:
 
 
 class VanillaInstaller:
-    def __init__(self, catalog: CatalogService, *, concurrency: int = 8, per_source: int = 4):
+    def __init__(
+        self,
+        catalog: CatalogService,
+        *,
+        concurrency: int = DEFAULT_CONCURRENCY,
+        per_source: int = DEFAULT_PER_SOURCE,
+    ):
         self.catalog = catalog
         self.downloader = ArtifactDownloader(catalog.client, limiter=SourceLimiter(per_source))
         self.scheduler = DownloadScheduler(self.downloader, concurrency)
@@ -86,7 +94,7 @@ class VanillaInstaller:
                 record.reused_files = 0
                 try:
                     await finish_thread(write_record, directory, record)
-                    minecraft = directory / "minecraft"
+                    minecraft = await asyncio.to_thread(game_root, directory, record)
                     await asyncio.to_thread(check_minecraft_root, minecraft)
                     report("downloading")
 
