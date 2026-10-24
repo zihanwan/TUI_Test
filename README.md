@@ -2,7 +2,7 @@
 
 Python Minecraft Java 版实例下载与安装工具。已实现版本查询、计划预览、原版实例文件安装与离线校验。
 支持有界并发、来源回退、文件级恢复、原生库解压和资源映射。
-Java 管理、登录、游戏启动、加载器与 TUI 留在后续阶段。
+已接入 Textual TUI 和实例命名；Java 管理、登录、游戏启动与加载器留在后续阶段。
 
 ## 开发运行
 
@@ -11,6 +11,7 @@ Java 管理、登录、游戏启动、加载器与 TUI 留在后续阶段。
 ```sh
 uv sync
 uv run mcinst --help
+uv run mcinst tui --directory instances/.minecraft
 uv run mcinst versions
 uv run mcinst versions --all --search 1.21 --limit 10
 uv run mcinst inspect 1.20.1
@@ -43,6 +44,7 @@ CLI 元数据查询当前不提供持久缓存或同源重试；不要把查询�
 首次保存固定计划，重跑相同命令会复用已校验文件，补齐失败、缺失或损坏的文件与派生资源。
 `verify ROOT VERSION` 离线检查该版本受管理文件，只有一个受管理版本时 VERSION 可省略。当前支持完整文件恢复，尚不支持 Range 字节级续传。
 完整接口、状态和 Review 入口见 [Vanilla 安装说明](docs/vanilla-install.md)。
+TUI 使用与命名细节见 [TUI 说明](docs/tui.md)。
 
 `plan` 仅读取版本清单、版本详情和资源索引，不写实例目录。
 文件路径相对于实例的 Minecraft 根目录，JSON 包含规范上游地址、候选来源、
@@ -65,7 +67,8 @@ uv run ruff format --check .
 测试运行器采用 Python 标准库 unittest，不额外依赖 pytest。
 `versions` / `inspect` / `plan` 可用于手动验证真实源，不作为每日离线测试的一部分。
 
-本次开发验证：102 项离线测试、Ruff 检查和格式检查通过，包含安装、恢复和新旧布局迁移。
+本次核心/服务验证：111 项离线测试通过，包含安装、命名、恢复、迁移与预览计划复用。
+当前环境 DNS 无法访问 PyPI，Textual 未安装，5 项界面测试跳过，uv.lock 尚待联网运行 uv sync 更新。
 现有真实 1.20.1 实例的 3631 个文件在布局迁移前后均通过校验，第三方启动器启动尚未验证。
 Python 3.12 的最低版本验证及跨平台实际安装验证仍待完成。
 已有虚拟环境时，可以直接验证，避免触发 uv 联网解析：
@@ -100,6 +103,8 @@ Python 3.12 的最低版本验证及跨平台实际安装验证仍待完成。
 | `src/mcinst/installation/state.py` | 固定计划、状态与进程锁 |
 | `src/mcinst/installation/verify.py` | 离线文件校验 |
 | `src/mcinst/installation/repository.py` | 共享根目录、版本状态定位与共享文件冲突检查 |
+| `src/mcinst/ui/app.py` | Textual 终端界面及任务生命周期 |
+| `src/mcinst/ui/service.py` | 界面服务、实例列表和预览入口 |
 | `src/mcinst/installation/layout.py` | 新旧根目录解析与离线布局迁移 |
 | `docs/install-plan.md` | 当前功能边界、数据流与 Review 说明 |
 | `docs/download-transfer.md` | 下载传输模块的接口、故障处理与 Review 说明 |
@@ -107,7 +112,7 @@ Python 3.12 的最低版本验证及跨平台实际安装验证仍待完成。
 | `docs/launcher-layout.md` | 启动器文件结构、目录选择和迁移依据 |
 | `docs/roadmap.md` | 开发顺序、验收条件与后续设计 |
 
-核心不依赖界面库。Textual 在接入 TUI 时添加；新职责出现后再拆分目录。
+核心不依赖界面库。Textual 仅用于 ui/，网络与安装服务不依赖它。
 
 参考：[Mojang 版本清单](https://piston-meta.mojang.com/mc/game/version_manifest_v2.json)、
 [BMCLAPI 文档](https://bmclapidoc.bangbang93.com/)、

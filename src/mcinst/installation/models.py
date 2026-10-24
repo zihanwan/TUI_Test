@@ -1,7 +1,15 @@
 import platform
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, computed_field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from mcinst.models import JavaRequirement, Sha1
 from mcinst.sources import SourceCandidate
@@ -68,10 +76,41 @@ class TargetPlatform(BaseModel):
 class InstanceSpec(BaseModel):
     model_config = ConfigDict(extra="forbid")
     minecraft_version: str
+    name: str | None = None
     target: TargetPlatform
     features: dict[str, StrictBool] = Field(default_factory=dict)
 
     _validate_version = field_validator("minecraft_version")(safe_component)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None) -> str | None:
+        if value is not None:
+            safe_component(value)
+            if value != value.strip() or len(value) > 64:
+                raise ValueError("实例名称不能有首尾空白，且不能超过 64 个字符")
+        return value
+
+    @model_validator(mode="after")
+    def normalize_name(self) -> "InstanceSpec":
+        if self.name == self.minecraft_version:
+            self.name = None
+        return self
+
+    @property
+    def instance_id(self) -> str:
+        return self.name or self.minecraft_version
+
+    @property
+    def version_json_path(self) -> str:
+        name = self.instance_id
+        return f"versions/{name}/{name}.json"
+
+    @property
+    def upstream_json_path(self) -> str:
+        if self.name is not None:
+            return f".mcinst/versions/{self.instance_id}/upstream.json"
+        return self.version_json_path
 
 
 class Artifact(BaseModel):

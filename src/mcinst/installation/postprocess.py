@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import stat
 import tempfile
@@ -8,7 +9,7 @@ from pathlib import Path
 from mcinst.downloads.files import check_target
 from mcinst.installation.errors import InstallationError
 from mcinst.installation.models import InstallPlan, safe_relative_path
-from mcinst.installation.state import ManagedFile
+from mcinst.installation.state import ManagedFile, read_bytes
 
 MAX_NATIVE_BYTES = 512 * 1024 * 1024
 MAX_NATIVE_ENTRIES = 20000
@@ -32,14 +33,14 @@ class PathRegistry:
 def validate_plan(plan: InstallPlan) -> PathRegistry:
     paths = PathRegistry()
     artifacts = {a.path: a for a in plan.artifacts}
-    version = plan.spec.minecraft_version
+    version = plan.spec.instance_id
     for artifact in plan.artifacts:
         path = artifact.path
         paths.add(path)
         if artifact.kind == "client":
             valid = path == f"versions/{version}/{version}.jar"
         elif artifact.kind == "version_json":
-            valid = path == f"versions/{version}/{version}.json"
+            valid = path == plan.spec.upstream_json_path
         elif artifact.kind in ("library", "native"):
             valid = path.startswith("libraries/")
         elif artifact.kind == "asset":
@@ -59,6 +60,8 @@ def validate_plan(plan: InstallPlan) -> PathRegistry:
         or kinds.count("asset_index") != 1
     ):
         raise InstallationError("原版计划必须包含唯一的客户端、版本 JSON 和资源索引")
+    if plan.spec.name is not None:
+        paths.add(plan.spec.version_json_path)
     for step in plan.native_extractions:
         source = artifacts.get(step.archive)
         if source is None or source.kind != "native":
@@ -165,6 +168,19 @@ def postprocess(plan: InstallPlan, root: Path, work_parent: Path) -> list[Manage
                         paths.add(relative)
                         native_files[relative] = destination, record
             derived: list[ManagedFile] = []
+            if plan.spec.name is not None:
+                source = check_target(root, plan.spec.upstream_json_path, create=False)
+                metadata = json.loads(read_bytes(source))
+                if metadata.get("id") != plan.spec.minecraft_version:
+                    raise InstallationError("上游版本 JSON 的 ID 与计划不符")
+                metadata["id"] = plan.spec.instance_id
+                generated = staging / "version.json"
+                generated.write_text(
+                    json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+                expected = digest_file(generated, plan.spec.version_json_path)
+                publish_copy(root, generated, expected)
+                derived.append(expected)
             for source, record in native_files.values():
                 publish_copy(root, source, record)
                 derived.append(record)

@@ -10,6 +10,14 @@ from mcinst.models import ManifestResult
 
 
 class CliTests(unittest.TestCase):
+    def test_missing_textual_reports_sync_command_without_importing_ui(self):
+        out, err = io.StringIO(), io.StringIO()
+        with patch("mcinst.cli.importlib.util.find_spec", return_value=None):
+            with redirect_stdout(out), redirect_stderr(err):
+                self.assertEqual(main(["tui"]), 1)
+        self.assertEqual(out.getvalue(), "")
+        self.assertIn("uv sync", err.getvalue())
+
     def test_default_download_limits_and_overrides(self):
         options = parser().parse_args(["install", "1.20.1", "--directory", "instances/test"])
         self.assertEqual((options.concurrency, options.per_source), (16, 8))

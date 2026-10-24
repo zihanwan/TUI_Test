@@ -36,10 +36,10 @@ def verify_instance(directory: Path, version: str | None = None) -> VerifyResult
         if state is None:
             raise InstallationError("该目录尚无安装记录")
         plan, record = state
-        if version is not None and version != plan.spec.minecraft_version:
+        if version is not None and version != plan.spec.instance_id:
             raise InstallationError("指定版本与安装记录不一致")
         if not legacy and (
-            metadata.name != plan.spec.minecraft_version or record.minecraft_directory != "."
+            metadata.name != plan.spec.instance_id or record.minecraft_directory != "."
         ):
             raise InstallationError("安装记录与共享版本目录不一致")
         validate_plan(plan)

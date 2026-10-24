@@ -1,0 +1,320 @@
+<div id="mcinst-draft">
+  <style>
+    #mcinst-draft { color-scheme:light dark; --term-bg:light-dark(#f6f7f8,#14191e); --term-panel:light-dark(#ffffff,#192027); --term-fg:light-dark(#26333b,#d6dfe5); --term-muted:light-dark(#536571,#9eafb9); --term-line:light-dark(#c5d0d7,#3c4b55); --term-active:light-dark(#e0eee9,#233d35); --term-green:light-dark(#23664e,#9bd2b9); --term-blue:light-dark(#205d80,#8bbfdc); --term-warn:light-dark(#905921,#dfb37d); font:14px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,"Noto Sans Mono CJK SC",monospace; color:var(--term-fg); }
+    #mcinst-draft * { box-sizing:border-box; }
+    #mcinst-draft [hidden] { display:none!important; }
+    #mcinst-draft button,#mcinst-draft input,#mcinst-draft select { font:inherit; color:inherit; }
+    #mcinst-draft button { border:1px solid var(--term-line); border-radius:0; background:var(--term-panel); padding:5px 13px; }
+    #mcinst-draft button:disabled { opacity:.45; }
+    #mcinst-draft button.primary { background:var(--term-green); color:var(--term-panel); border-color:var(--term-green); }
+    #mcinst-draft input,#mcinst-draft select { width:100%; min-width:0; background:var(--term-bg); border:1px solid var(--term-line); border-radius:0; padding:6px 9px; }
+    #mcinst-draft input[type=checkbox] { width:auto; accent-color:var(--term-green); }
+    #mcinst-draft .draft-note { color:var(--term-muted); font-size:12px; margin:0 100px 10px 0; }
+    #mcinst-draft .terminal { background:var(--term-bg); border:1px solid var(--term-line); }
+    #mcinst-draft .top { display:flex; align-items:center; gap:16px; flex-wrap:wrap; background:var(--term-panel); padding:12px 16px; border-bottom:1px solid var(--term-line); }
+    #mcinst-draft .brand { font-weight:500; letter-spacing:.06em; }
+    #mcinst-draft .top small { color:var(--term-muted); font-size:12px; }
+    #mcinst-draft .tabs { display:flex; gap:4px; margin-left:auto; flex-wrap:wrap; }
+    #mcinst-draft .tabs button { border:0; padding:3px 10px; color:var(--term-muted); }
+    #mcinst-draft .tabs button[aria-selected=true] { background:var(--term-active); color:var(--term-green); }
+    #mcinst-draft .rootbar { display:flex; gap:10px; flex-wrap:wrap; padding:8px 16px; border-bottom:1px solid var(--term-line); font-size:12px; color:var(--term-muted); }
+    #mcinst-draft .rootbar span:last-child { color:var(--term-fg); overflow-wrap:anywhere; }
+    #mcinst-draft .main { display:grid; grid-template-columns:minmax(250px,34%) minmax(0,1fr); }
+    #mcinst-draft .versions { border-right:1px solid var(--term-line); padding:16px 12px; }
+    #mcinst-draft .section-title { margin:0 0 12px; font-size:14px; font-weight:500; }
+    #mcinst-draft .muted { color:var(--term-muted); }
+    #mcinst-draft .filters { display:flex; gap:7px; flex-wrap:wrap; align-items:center; margin:9px 0 14px; font-size:12px; }
+    #mcinst-draft .filters label { display:flex; gap:5px; align-items:center; }
+    #mcinst-draft .listhead { display:flex; justify-content:space-between; color:var(--term-muted); padding:4px 8px; font-size:12px; border-bottom:1px solid var(--term-line); }
+    #mcinst-draft .version-row { display:flex; width:100%; gap:8px; text-align:left; border:0; padding:10px 8px; background:transparent; align-items:center; }
+    #mcinst-draft .version-row[aria-pressed=true] { color:var(--term-green); background:var(--term-active); }
+    #mcinst-draft .version-row .marker { width:12px; flex:none; }
+    #mcinst-draft .version-row .kind { margin-left:auto; font-size:12px; color:var(--term-muted); }
+    #mcinst-draft .list-foot { color:var(--term-muted); font-size:12px; padding:15px 8px 0; }
+    #mcinst-draft .detail { padding:16px 20px; min-width:0; }
+    #mcinst-draft .detailhead { display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+    #mcinst-draft .version-name { font-size:19px; font-weight:500; }
+    #mcinst-draft .status { font-size:12px; color:var(--term-green); }
+    #mcinst-draft dl { display:grid; grid-template-columns:84px minmax(0,1fr); gap:10px 14px; margin:0; }
+    #mcinst-draft dt { color:var(--term-muted); }
+    #mcinst-draft dd { margin:0; overflow-wrap:anywhere; }
+    #mcinst-draft .separator { height:1px; background:var(--term-line); margin:19px 0; }
+    #mcinst-draft .actions { display:flex; align-items:center; gap:12px; margin-top:20px; flex-wrap:wrap; }
+    #mcinst-draft .actions span { font-size:12px; color:var(--term-muted); }
+    #mcinst-draft .advanced { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+    #mcinst-draft .advanced label { display:flex; gap:5px; flex-direction:column; font-size:12px; color:var(--term-muted); }
+    #mcinst-draft .task { padding:12px 16px; border-top:1px solid var(--term-line); background:var(--term-panel); }
+    #mcinst-draft .taskhead { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:5px 16px; }
+    #mcinst-draft .taskstats { display:flex; flex-wrap:wrap; gap:6px 22px; margin:9px 0; font-size:12px; color:var(--term-muted); }
+    #mcinst-draft .track { height:8px; background:var(--term-active); margin:9px 0 7px; }
+    #mcinst-draft .bar { height:100%; width:0; background:var(--term-green); }
+    #mcinst-draft .taskfoot { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+    #mcinst-draft .taskfoot span { color:var(--term-muted); font-size:12px; }
+    #mcinst-draft .taskfoot button { font-size:12px; padding:2px 10px; }
+    #mcinst-draft .logs { font-size:12px; padding:9px 0 0; margin-top:9px; border-top:1px solid var(--term-line); color:var(--term-muted); overflow-wrap:anywhere; }
+    #mcinst-draft .footer { display:flex; flex-wrap:wrap; gap:8px 20px; padding:8px 16px; border-top:1px solid var(--term-line); font-size:12px; color:var(--term-muted); }
+    #mcinst-draft kbd { color:var(--term-fg); font:inherit; margin-right:4px; }
+    #mcinst-draft .page { padding:20px; }
+    #mcinst-draft .settings { max-width:640px; }
+    #mcinst-draft .settings label { display:flex; flex-direction:column; gap:6px; margin-bottom:15px; }
+    #mcinst-draft .settings .pair { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    #mcinst-draft .local-row { display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; padding:14px 0; border-top:1px solid var(--term-line); }
+    #mcinst-draft .local-row small { display:block; color:var(--term-muted); font-size:12px; }
+    #mcinst-draft .local-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    #mcinst-draft .error { color:var(--term-warn); margin-top:10px; }
+    #mcinst-draft .plan { margin-top:17px; padding:12px 0; border-top:1px solid var(--term-line); }
+    #mcinst-draft .plan dl { font-size:12px; grid-template-columns:98px 1fr; gap:6px 10px; }
+    #mcinst-draft .plan .section-title { color:var(--term-green); }
+    @media(max-width:650px) {
+      #mcinst-draft .main { grid-template-columns:1fr; }
+      #mcinst-draft .versions { border-right:0; border-bottom:1px solid var(--term-line); }
+      #mcinst-draft .detail { padding:16px; }
+      #mcinst-draft .tabs { margin-left:0; }
+      #mcinst-draft .top { gap:10px; }
+      #mcinst-draft dl { grid-template-columns:76px minmax(0,1fr); gap:9px; }
+      #mcinst-draft .advanced,#mcinst-draft .settings .pair { grid-template-columns:1fr; }
+      #mcinst-draft .local-row { grid-template-columns:1fr; }
+    }
+    @media(pointer:coarse) {
+      #mcinst-draft button,#mcinst-draft select,#mcinst-draft input:not([type=checkbox]) { min-height:44px; }
+      #mcinst-draft input,#mcinst-draft select { font-size:16px; }
+    }
+  </style>
+  <div class="draft-note">TUI 布局草图 · 示例版本与任务数据 · 可点击操作</div>
+  <div class="terminal">
+    <header class="top">
+      <span class="brand">mcinst</span><small>Minecraft 实例下载器</small>
+      <nav class="tabs" aria-label="主导航">
+        <button type="button" class="cursor-interaction" data-page="download" aria-selected="true">下载</button>
+        <button type="button" class="cursor-interaction" data-page="local" aria-selected="false">本地版本</button>
+        <button type="button" class="cursor-interaction" data-page="settings" aria-selected="false">设置</button>
+      </nav>
+    </header>
+    <div class="rootbar"><span>游戏根目录</span><span id="root-label">instances/.minecraft</span></div>
+    <section id="download-page">
+      <div class="main">
+        <aside class="versions" aria-label="版本选择">
+          <h2 class="section-title">选择版本</h2>
+          <input id="version-search" aria-label="搜索版本" placeholder="/ 搜索版本，例如 1.20" autocomplete="off">
+          <div class="filters"><label><input id="snapshot-filter" type="checkbox">包含快照</label><span class="muted">·</span><span id="source-label">自动换源</span></div>
+          <div class="listhead"><span>版本 ID</span><span>状态</span></div>
+          <div id="version-list"></div>
+          <div id="empty-list" class="list-foot" hidden>没有匹配的版本</div>
+          <div class="list-foot">↑ ↓ 移动　Enter 查看计划</div>
+        </aside>
+        <section class="detail" aria-label="版本详情与安装配置">
+          <div class="detailhead"><span class="version-name" id="selected-title">Minecraft 1.21.1</span><span id="selected-status" class="status">正式版 · 未安装</span></div>
+          <dl>
+            <dt>加载器</dt><dd>原版 Vanilla</dd>
+            <dt>Java 要求</dt><dd id="java-label">Java 21</dd>
+            <dt>安装位置</dt><dd id="install-path">versions/1.21.1/</dd>
+          </dl>
+          <div class="separator"></div>
+          <h2 class="section-title">安装配置</h2>
+          <dl>
+            <dt><label for="source-select">下载源</label></dt><dd><select id="source-select"><option value="auto">自动 · BMCLAPI 优先，官方回退</option><option value="official">官方源</option><option value="bmclapi">BMCLAPI</option></select></dd>
+            <dt><label for="platform-select">目标平台</label></dt><dd><select id="platform-select"><option value="native">本机 · macOS / ARM64</option><option value="linux" selected>Linux / x86_64</option><option value="windows">Windows / x86_64</option></select></dd>
+          </dl>
+          <div class="actions"><button type="button" id="advanced-toggle" class="cursor-interaction" aria-expanded="false">高级选项 ＋</button><span>并发 <span id="limit-label">16 / 每源 8</span></span></div>
+          <div class="advanced" id="advanced-options" hidden>
+            <label>总并发<input id="concurrency" type="number" min="1" max="64" value="16"></label>
+            <label>每来源并发<input id="per-source" type="number" min="1" max="64" value="8"></label>
+          </div>
+          <div class="actions" id="preview-action"><button type="button" class="primary cursor-interaction" id="preview-plan">预览安装计划</button><span>先检查需要下载的文件</span></div>
+          <div id="plan-panel" class="plan" hidden>
+            <h3 class="section-title">安装计划 · 示例</h3>
+            <dl><dt>所需文件</dt><dd>3,631 个</dd><dt>下载大小</dt><dd>以实际解析结果为准</dd><dt>目标目录</dt><dd id="plan-path">versions/1.21.1/</dd><dt>Java</dt><dd>仅显示版本要求，尚未配置运行时</dd></dl>
+            <div class="actions"><button type="button" class="primary cursor-interaction" id="install-button">开始安装</button><button type="button" id="back-config" class="cursor-interaction">返回配置</button></div>
+          </div>
+        </section>
+      </div>
+    </section>
+    <section id="local-page" class="page" hidden>
+      <h2 class="section-title">本地版本</h2>
+      <div class="local-row"><div>1.20.1 <span class="status">已安装</span><small>原版 · Linux / x86_64 · Java 17</small></div><div class="local-actions"><button type="button" id="verify-button" class="cursor-interaction">离线校验</button><button type="button" id="repair-button" class="cursor-interaction">修复</button></div></div>
+      <div id="verify-message" aria-live="polite" class="muted"></div>
+    </section>
+    <section id="settings-page" class="page" hidden>
+      <h2 class="section-title">设置</h2>
+      <div class="settings">
+        <label for="root-input">共享游戏根目录<input id="root-input" value="instances/.minecraft"></label>
+        <p class="muted">所有版本放在 versions/ 下，共用 assets/ 与 libraries/。</p>
+        <button type="button" id="save-settings" class="primary cursor-interaction">应用并返回</button>
+      </div>
+    </section>
+    <section class="task" aria-label="当前安装任务">
+      <div class="taskhead"><span id="task-title">任务</span><span id="task-state" class="muted" aria-live="polite">就绪 · 尚未开始下载</span></div>
+      <div id="task-body" hidden>
+        <div class="track" role="progressbar" aria-label="文件进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="task-progress"><div class="bar" id="task-bar"></div></div>
+        <div class="taskstats"><span id="file-progress">文件 0 / 3,631</span><span id="reused-progress">下载 0 · 复用 0</span><span id="source-progress">来源 BMCLAPI</span></div>
+        <div class="taskfoot"><span id="task-message">等待任务</span><div><button type="button" class="cursor-interaction" id="logs-button" aria-expanded="false">展开日志</button> <button type="button" class="cursor-interaction" id="cancel-button">取消</button></div></div>
+        <div class="logs" id="task-logs" hidden>INFO　安装任务已创建<br>INFO　使用固定计划，校验并复用已有文件<br>INFO　进度、来源与错误在这里展开</div>
+      </div>
+    </section>
+    <footer class="footer"><span><kbd>Tab</kbd>切换区域</span><span><kbd>↑ ↓</kbd>选择</span><span><kbd>/</kbd>搜索</span><span><kbd>Enter</kbd>确认</span><span><kbd>Esc</kbd>返回</span><span><kbd>Ctrl+Q</kbd>退出</span></footer>
+  </div>
+  <script>
+    (() => {
+      const root = document.getElementById('mcinst-draft');
+      const get = id => root.querySelector('#' + id);
+      const versions = [
+        { id:'1.21.1', java:21, installed:false },
+        { id:'1.20.4', java:17, installed:false },
+        { id:'1.20.1', java:17, installed:true },
+        { id:'1.19.4', java:17, installed:false },
+        { id:'1.18.2', java:17, installed:false },
+        { id:'1.16.5', java:8, installed:false },
+        { id:'24w14a', java:21, installed:false, snapshot:true }
+      ];
+      let selected = versions[0];
+      let page = 'download';
+      let running = false;
+      let timer = null;
+      let taskVersion = '';
+      let step = 0;
+      const taskSteps = [
+        { p:12, files:'436', down:'20', reuse:'416', label:'校验并复用已有文件', message:'检查本地 assets/ 与 libraries/' },
+        { p:68, files:'2,469', down:'312', reuse:'2,157', label:'下载与校验', message:'libraries/org/lwjgl/lwjgl/…/lwjgl.jar' },
+        { p:94, files:'3,413', down:'920', reuse:'2,493', label:'下载与校验', message:'assets/objects/…' },
+        { p:100, files:'3,631', down:'1,138', reuse:'2,493', label:'后处理', message:'处理原生库及资源映射' },
+        { p:100, files:'3,631', down:'1,138', reuse:'2,493', label:'安装完成 · 演示', message:'文件已就绪，可交由启动器使用' }
+      ];
+      const sourceName = () => ({auto:'BMCLAPI → 官方', official:'官方', bmclapi:'BMCLAPI'})[get('source-select').value];
+      function showPage(next) {
+        page = next;
+        ['download','local','settings'].forEach(name => get(name+'-page').hidden = name !== next);
+        root.querySelectorAll('[data-page]').forEach(button => button.setAttribute('aria-selected', String(button.dataset.page === next)));
+      }
+      function closePlan() { get('plan-panel').hidden = true; get('preview-action').hidden = false; }
+      function choose(version) {
+        selected = version;
+        get('selected-title').textContent = 'Minecraft ' + version.id;
+        get('selected-status').textContent = (version.snapshot ? '快照' : '正式版') + ' · ' + (version.installed ? '已安装，可校验修复' : '未安装');
+        get('java-label').textContent = 'Java ' + version.java;
+        get('install-path').textContent = 'versions/' + version.id + '/';
+        get('plan-path').textContent = 'versions/' + version.id + '/';
+        get('install-button').textContent = version.installed ? '校验并修复' : '开始安装';
+        closePlan();
+        renderList();
+      }
+      function visibleVersions() {
+        const query = get('version-search').value.trim().toLowerCase();
+        return versions.filter(v => (!v.snapshot || get('snapshot-filter').checked) && v.id.toLowerCase().includes(query));
+      }
+      function renderList() {
+        const list = get('version-list');
+        list.replaceChildren();
+        const visible = visibleVersions();
+        visible.forEach(version => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'version-row cursor-interaction';
+          button.setAttribute('aria-pressed', String(version.id === selected.id));
+          button.setAttribute('aria-label', version.id + (version.installed ? ' 已安装' : ' 未安装'));
+          [['marker', version.id === selected.id ? '›' : ' '], ['', version.id], ['kind', version.installed ? '已安装' : version.snapshot ? '快照' : '正式版']].forEach(([css,text]) => {
+            const span = document.createElement('span'); span.className = css; span.textContent = text; button.appendChild(span);
+          });
+          button.addEventListener('click', () => choose(version));
+          button.addEventListener('keydown', event => {
+            if (!['ArrowDown','ArrowUp','Enter'].includes(event.key)) return;
+            event.preventDefault();
+            if (event.key === 'Enter') { preview(); return; }
+            const delta = event.key === 'ArrowDown' ? 1 : -1;
+            const next = visible[Math.max(0, Math.min(visible.length-1, visible.indexOf(version)+delta))];
+            choose(next);
+            const rows = get('version-list').querySelectorAll('button');
+            rows[visible.indexOf(next)].focus();
+          });
+          list.appendChild(button);
+        });
+        get('empty-list').hidden = visible.length > 0;
+      }
+      function preview() {
+        if (running) return;
+        get('plan-panel').hidden = false;
+        get('preview-action').hidden = true;
+      }
+      function drawStep() {
+        const state = taskSteps[step];
+        get('task-bar').style.width = state.p+'%';
+        get('task-progress').setAttribute('aria-valuenow', String(state.p));
+        get('file-progress').textContent = '文件 ' + state.files + ' / 3,631';
+        get('reused-progress').textContent = '下载 ' + state.down + ' · 复用 ' + state.reuse;
+        get('task-state').textContent = state.label;
+        get('task-message').textContent = state.message;
+        if (step === taskSteps.length-1) {
+          running = false;
+          get('cancel-button').hidden = true;
+          get('install-button').disabled = false;
+          get('preview-plan').disabled = false;
+          timer = null;
+        } else {
+          timer = setTimeout(() => { step++; drawStep(); }, 1900);
+        }
+      }
+      function install() {
+        if (running) return;
+        running = true; step = 0; taskVersion = selected.id;
+        get('task-title').textContent = '当前任务 · Vanilla ' + taskVersion;
+        get('task-body').hidden = false;
+        get('cancel-button').hidden = false;
+        get('source-progress').textContent = '来源 ' + sourceName();
+        get('install-button').disabled = true;
+        get('preview-plan').disabled = true;
+        drawStep();
+      }
+      root.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => showPage(button.dataset.page)));
+      get('version-search').addEventListener('input', renderList);
+      get('snapshot-filter').addEventListener('change', renderList);
+      get('source-select').addEventListener('change', () => { get('source-label').textContent = sourceName(); closePlan(); });
+      get('platform-select').addEventListener('change', closePlan);
+      get('advanced-toggle').addEventListener('click', () => {
+        const open = get('advanced-options').hidden;
+        get('advanced-options').hidden = !open;
+        get('advanced-toggle').setAttribute('aria-expanded', String(open));
+        get('advanced-toggle').textContent = open ? '高级选项 −' : '高级选项 ＋';
+      });
+      ['concurrency','per-source'].forEach(id => get(id).addEventListener('change', () => {
+        get(id).value = String(Math.max(1, Math.min(64, Number(get(id).value) || 1)));
+        get('limit-label').textContent = get('concurrency').value + ' / 每源 ' + get('per-source').value;
+        closePlan();
+      }));
+      get('preview-plan').addEventListener('click', preview);
+      get('back-config').addEventListener('click', closePlan);
+      get('install-button').addEventListener('click', install);
+      get('cancel-button').addEventListener('click', () => {
+        if (timer) clearTimeout(timer);
+        timer = null; running = false;
+        get('task-state').textContent = '已取消 · 演示';
+        get('task-message').textContent = '已完成文件保留；再次安装时校验复用';
+        get('cancel-button').hidden = true;
+        get('install-button').disabled = false;
+        get('preview-plan').disabled = false;
+      });
+      get('logs-button').addEventListener('click', () => {
+        const open = get('task-logs').hidden;
+        get('task-logs').hidden = !open;
+        get('logs-button').setAttribute('aria-expanded', String(open));
+        get('logs-button').textContent = open ? '收起日志' : '展开日志';
+      });
+      get('save-settings').addEventListener('click', () => {
+        const path = get('root-input').value.trim();
+        if (!path) { get('root-input').focus(); return; }
+        get('root-label').textContent = path;
+        closePlan(); showPage('download');
+      });
+      get('verify-button').addEventListener('click', () => { get('verify-message').textContent = '校验完成 · 3,631 个文件，缺失 0，不匹配 0（示例）'; });
+      get('repair-button').addEventListener('click', () => { choose(versions.find(v => v.id === '1.20.1')); showPage('download'); preview(); });
+      root.addEventListener('keydown', event => {
+        const editing = ['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName);
+        if (event.key === '/' && !editing) { event.preventDefault(); showPage('download'); get('version-search').focus(); }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          if (page !== 'download') showPage('download');
+          else closePlan();
+        }
+      });
+      renderList();
+    })();
+  </script>
+</div>

@@ -224,7 +224,7 @@ def build_plan(
         builder = _PlanBuilder(spec, policy)
         builder.add(
             "version_json",
-            f"versions/{metadata.id}/{metadata.id}.json",
+            spec.upstream_json_path,
             DownloadInfo(
                 url=detail.upstream_url,
                 sha1=detail.sha1,
@@ -233,8 +233,9 @@ def build_plan(
         )
         client = DownloadInfo.model_validate(metadata.downloads.get("client"))
         require_integrity(client, "客户端")
-        builder.add("client", f"versions/{metadata.id}/{metadata.id}.jar", client)
-        builder.libraries(metadata.libraries, metadata.id)
+        name = spec.instance_id
+        builder.add("client", f"versions/{name}/{name}.jar", client)
+        builder.libraries(metadata.libraries, name)
         builder.add("asset_index", f"assets/indexes/{index_info.id}.json", index_info)
         builder.assets(index, index_info.id)
         logging = extra.get("logging", {})

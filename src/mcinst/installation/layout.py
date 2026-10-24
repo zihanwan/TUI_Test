@@ -75,7 +75,7 @@ def migrate_layout(directory: Path, destination: Path) -> LayoutMigrationResult:
                 raise InstallationError("旧实例没有安装记录")
             plan, record = state
             validate_plan(plan)
-            version = plan.spec.minecraft_version
+            version = plan.spec.instance_id
             if record.minecraft_directory == ".":
                 raise InstallationError("迁移源已经使用共享根目录布局")
             root = directory / record.minecraft_directory

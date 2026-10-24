@@ -13,7 +13,12 @@ from mcinst.installation.errors import InstallationError
 from mcinst.installation.models import InstallPlan, InstanceSpec
 from mcinst.installation.planner import InstallPlanService
 from mcinst.installation.postprocess import postprocess, validate_plan
-from mcinst.installation.repository import check_repository, check_shared_files, state_directory
+from mcinst.installation.repository import (
+    check_instance_name,
+    check_repository,
+    check_shared_files,
+    state_directory,
+)
 from mcinst.installation.state import (
     finish_thread,
     instance_lock,
@@ -59,6 +64,8 @@ class VanillaInstaller:
         spec: InstanceSpec,
         directory: Path,
         on_progress: Callable[[InstallProgress], None] | None = None,
+        *,
+        plan: InstallPlan | None = None,
     ) -> InstallResult:
         spec = InstanceSpec.model_validate(spec.model_dump())
         directory = await asyncio.to_thread(resolve_root, Path(directory))
@@ -70,16 +77,22 @@ class VanillaInstaller:
         try:
             with instance_lock(directory):
                 check_repository(directory)
-                metadata = state_directory(directory, spec.minecraft_version, create=True)
+                check_instance_name(directory, spec.instance_id)
+                metadata = state_directory(directory, spec.instance_id, create=True)
                 state = await finish_thread(load_state, metadata)
                 if state is None:
-                    version_path = directory / "versions" / spec.minecraft_version
+                    version_path = directory / "versions" / spec.instance_id
                     if version_path.exists() or version_path.is_symlink():
                         raise InstallationError(
                             "版本目录已存在但没有安装记录，拒绝覆盖；请选择其他游戏根目录"
                         )
                     report("planning")
-                    plan = await InstallPlanService(self.catalog).plan(spec)
+                    if plan is None:
+                        plan = await InstallPlanService(self.catalog).plan(spec)
+                    else:
+                        plan = InstallPlan.model_validate(plan.model_dump())
+                        if plan.spec != spec:
+                            raise InstallationError("预览计划与安装请求不一致")
                     validate_plan(plan)
                     await finish_thread(check_shared_files, directory, plan)
                     record = await finish_thread(save_plan, metadata, plan)

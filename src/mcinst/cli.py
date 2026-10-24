@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import importlib.util
 import json
 import sys
 import time
@@ -57,6 +58,7 @@ def parser() -> argparse.ArgumentParser:
     inspect.add_argument("version_id")
     target_options = argparse.ArgumentParser(add_help=False)
     target_options.add_argument("version_id")
+    target_options.add_argument("--name", help="实例名称，默认使用版本 ID")
     target_options.add_argument("--os", choices=["windows", "linux", "osx"], help="默认当前系统")
     target_options.add_argument("--arch", choices=["x86", "x86_64", "amd64", "aarch64", "arm64"])
     target_options.add_argument("--os-version", help="用于匹配目标系统版本规则")
@@ -97,6 +99,9 @@ def parser() -> argparse.ArgumentParser:
         "--directory", dest="destination", type=Path, required=True, help="目标共享根目录"
     )
     migrate.add_argument("--json", action="store_true")
+    tui = commands.add_parser("tui", help="打开终端界面")
+    tui.add_argument("--directory", type=Path, default=Path("instances/.minecraft"))
+    tui.add_argument("--source", choices=list(SourcePolicy), default="auto")
     return root
 
 
@@ -150,6 +155,7 @@ async def run(args: argparse.Namespace) -> int:
     if args.command in ("plan", "install"):
         spec = InstanceSpec(
             minecraft_version=args.version_id,
+            name=args.name,
             target=TargetPlatform.detect(args.os, args.arch, args.os_version),
             features=dict(args.feature),
         )
@@ -262,11 +268,15 @@ async def run(args: argparse.Namespace) -> int:
             ).install(spec, args.directory, progress)
             if args.json:
                 payload = asdict(result)
+                payload["instance_name"] = spec.instance_id
                 payload["directory"] = str(result.directory)
                 payload["minecraft_directory"] = str(result.minecraft_directory)
                 print(json.dumps(payload, ensure_ascii=False, indent=2))
             else:
-                print(f"原版实例文件安装完成：{result.minecraft_directory}")
+                print(
+                    f"原版实例文件安装完成："
+                    f"{result.minecraft_directory / 'versions' / spec.instance_id}"
+                )
                 print(
                     f"下载 {result.downloaded_files}，复用 {result.reused_files}，"
                     f"后处理文件 {result.derived_files}"
@@ -281,6 +291,14 @@ def main(argv: list[str] | None = None) -> int:
     args = root.parse_args(argv)
     if args.command is None:
         root.print_help()
+        return 0
+    if args.command == "tui":
+        if importlib.util.find_spec("textual") is None:
+            print("缺少 Textual，请先运行 uv sync", file=sys.stderr)
+            return 1
+        from mcinst.ui.app import McinstApp
+
+        McinstApp(args.directory, SourcePolicy(args.source)).run()
         return 0
     try:
         return asyncio.run(run(args))

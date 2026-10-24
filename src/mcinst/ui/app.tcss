@@ -1,0 +1,40 @@
+Screen { layout: vertical; background: $background; }
+#top { height: 3; background: $panel; padding: 0 1; align-vertical: middle; }
+#brand { width: 1fr; height: 1; text-style: bold; }
+.nav { min-width: 7; width: auto; border: none; height: 3; background: $panel; }
+.nav.active { color: $success; text-style: bold; }
+#root { height: auto; max-height: 3; color: $text-muted; padding: 0 2; }
+#error { height: auto; max-height: 6; color: $error; padding: 0 2; overflow-y: auto; }
+#pages { height: 1fr; }
+#download { height: 1fr; }
+#versions { width: 33%; min-width: 26; padding: 1; border-right: solid $primary-muted; }
+#versions Label { height: 1; }
+#versions Input { margin-top: 1; }
+#snapshots { height: 3; border: none; }
+#catalog-status { height: auto; color: $text-muted; }
+#version-list { height: 1fr; border: none; padding: 0; }
+OptionList { background: $surface; }
+#detail { width: 1fr; padding: 1 2; }
+#selected-version { height: 2; text-style: bold; color: $success; }
+.field-label { margin-top: 1; height: 1; }
+#version-info, #install-path { height: auto; color: $text-muted; margin-top: 1; }
+#name-error { height: auto; color: $error; }
+#advanced { margin: 1 0; }
+#advanced Label { height: 1; }
+#plan { height: auto; margin-top: 1; }
+#plan-summary { height: auto; margin-bottom: 1; }
+.actions { height: 3; width: 1fr; }
+.actions Button { min-width: 8; width: auto; margin-right: 1; }
+#local { padding: 1 2; }
+#instance-list { height: 1fr; }
+#verify-result { height: auto; max-height: 5; margin: 1 0; }
+#settings { padding: 1 2; }
+#settings Input { margin: 1 0; }
+#task { height: auto; max-height: 15; border-top: solid $primary-muted; padding: 0 2; }
+#task-title, #task-counts { height: auto; }
+#progress { height: 1; width: 1fr; }
+#logs { height: 6; border: none; }
+.narrow #download { layout: vertical; overflow-y: auto; }
+.narrow #versions { width: 1fr; height: 13; min-width: 0; border-right: none; border-bottom: solid $primary-muted; }
+.narrow #detail { width: 1fr; height: auto; min-height: 34; overflow-y: hidden; }
+.narrow #task { max-height: 12; padding: 0 1; }
