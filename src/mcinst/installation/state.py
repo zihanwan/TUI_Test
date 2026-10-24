@@ -29,7 +29,7 @@ class InstanceRecord(BaseModel):
     status: Literal["installing", "installed", "failed", "cancelled"]
     plan_sha256: str
     # Records written before layout tracking used minecraft/. Keep their default.
-    minecraft_directory: Literal["minecraft", ".minecraft"] = "minecraft"
+    minecraft_directory: Literal["minecraft", ".minecraft", "."] = "minecraft"
     downloaded_files: int = 0
     reused_files: int = 0
     derived_files: list[ManagedFile] = Field(default_factory=list)
@@ -89,7 +89,7 @@ def save_plan(directory: Path, plan: InstallPlan) -> InstanceRecord:
     record = InstanceRecord(
         status="installing",
         plan_sha256=hashlib.sha256(raw).hexdigest(),
-        minecraft_directory=".minecraft",
+        minecraft_directory=".",
     )
     write_record(directory, record)
     return record

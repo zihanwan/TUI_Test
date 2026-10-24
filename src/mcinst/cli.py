@@ -72,7 +72,9 @@ def parser() -> argparse.ArgumentParser:
     install = commands.add_parser(
         "install", parents=[shared, target_options], help="下载并组装原版实例"
     )
-    install.add_argument("--directory", type=Path, required=True, help="独立实例目录")
+    install.add_argument(
+        "--directory", type=Path, required=True, help="共享游戏根目录，例如 .minecraft"
+    )
     install.add_argument(
         "--concurrency",
         type=concurrency_int,
@@ -87,16 +89,20 @@ def parser() -> argparse.ArgumentParser:
     )
     verify = commands.add_parser("verify", help="离线校验实例的受管理文件")
     verify.add_argument("directory", type=Path)
+    verify.add_argument("version_id", nargs="?", help="版本 ID；仅有一个受管理版本时可省略")
     verify.add_argument("--json", action="store_true")
-    migrate = commands.add_parser("migrate-layout", help="将旧实例游戏目录迁移为 .minecraft")
+    migrate = commands.add_parser("migrate-layout", help="将旧独立实例合入共享游戏根目录")
     migrate.add_argument("directory", type=Path)
+    migrate.add_argument(
+        "--directory", dest="destination", type=Path, required=True, help="目标共享根目录"
+    )
     migrate.add_argument("--json", action="store_true")
     return root
 
 
 async def run(args: argparse.Namespace) -> int:
     if args.command == "migrate-layout":
-        result = await finish_thread(migrate_layout, args.directory)
+        result = await finish_thread(migrate_layout, args.directory, args.destination)
         if args.json:
             print(
                 json.dumps(
@@ -110,11 +116,11 @@ async def run(args: argparse.Namespace) -> int:
                 )
             )
         else:
-            label = "布局迁移完成" if result.changed else "已采用 .minecraft 布局"
+            label = "布局迁移完成" if result.changed else "已迁移至共享游戏根目录"
             print(f"{label}：{result.minecraft_directory}")
         return 0
     if args.command == "verify":
-        result = await asyncio.to_thread(verify_instance, args.directory)
+        result = await asyncio.to_thread(verify_instance, args.directory, args.version_id)
         if args.json:
             print(
                 json.dumps(

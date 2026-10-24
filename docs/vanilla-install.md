@@ -9,11 +9,11 @@
 
 ```sh
 .venv/bin/mcinst install 1.20.1 \
-  --directory instances/vanilla-1.20.1-linux \
+  --directory instances/.minecraft \
   --os linux --arch x86_64 --os-version 6.0 \
   --source official
 
-.venv/bin/mcinst verify instances/vanilla-1.20.1-linux
+.venv/bin/mcinst verify instances/.minecraft 1.20.1
 ```
 
 这会下载 Linux 目标的完整原版文件；在 macOS 上运行命令也不会把它自动改为 macOS 实例。
@@ -27,7 +27,9 @@
 
 同一命令重跑将校验并复用已完成文件，并重新生成或修复派生文件。
 删掉一个受管理库文件或损坏一个资源映射后，可以先 verify，再重跑 install 验证修复。
-版本、平台及功能条件必须与原实例相同；不同配置应使用新的实例目录。
+同一版本 ID 的平台及功能条件必须与固定计划相同；不同配置应使用其他共享根目录。
+不同版本可安装到同一共享根目录，有预期哈希的公共资源和库会直接复用。
+多个受管理版本共存时，verify 必须明确指定版本 ID。
 可更换 --source，不改变固定计划中的版本、目标路径或哈希。
 
 `install --json` 向 stdout 输出成功结果，阶段与进度写入 stderr。
@@ -45,6 +47,7 @@ verify 不联网、不修复、不改写游戏文件，异常或未完成状态�
 | `installation/state.py` | 固定计划、安装记录、原子状态写入及实例进程锁 |
 | `installation/postprocess.py` | 目标用途检查、受控 ZIP 解压及资源映射 |
 | `installation/verify.py` | 受管理文件的离线校验 |
+| `installation/repository.py` | 共享根目录、版本状态定位和跨版本冲突保护 |
 | `installation/layout.py` | 新旧游戏根目录解析与离线迁移 |
 | `cli.py` | install / verify / migrate-layout 命令及展示 |
 | `tests/test_scheduler.py` | 并发上限、退避配额、失败取消 |
@@ -53,37 +56,43 @@ verify 不联网、不修复、不改写游戏文件，异常或未完成状态�
 ## 实例布局
 
 ```text
-instances/vanilla-1.20.1-linux/
+instances/.minecraft/
     .mcinst.lock
-    instance.json
-    install-plan.json
-    .minecraft/
-        versions/
-        libraries/
-        assets/
-        resources/  (仅在资源索引要求时生成)
+    .mcinst/versions/<id>/
+        install-plan.json
+        instance.json
+    versions/<id>/
+        <id>.json
+        <id>.jar
+    libraries/
+    assets/
+    resources/  (仅在旧版资源索引要求时生成)
 ```
 
-`.minecraft/versions/<id>/` 内含同名 JSON 与 JAR。第三方启动器添加游戏文件夹时，
-应选择 `.minecraft/` 这一层；旧实例仍可保留 minecraft/，或使用 migrate-layout 更名。
-详细格式依据与适配边界见 [启动器兼容布局](launcher-layout.md)。
+`--directory` 直接指向游戏根目录。PCL、HMCL 添加 `instances/.minecraft` 这一层；
+各版本位于 versions 下，不再有“实例内再套 .minecraft”。
+安装器不写入第三方启动器私有配置，存档和模组的版本隔离需在启动器中设置。
+详细格式依据与旧实例迁移命令见 [启动器兼容布局](launcher-layout.md)。
 
-`.mcinst.lock` 是进程锁文件，安装结束也保留其 inode；锁随文件句柄关闭释放。
+`.mcinst.lock` 是整个游戏根目录的进程锁，保留 inode，锁随文件句柄关闭释放。
 Windows 使用 msvcrt 字节锁，其他受支持桌面系统使用 flock。
-不会因一次崩溃留下需要手动删除的“占用标记”；不同进程不能同时安装同一实例。
+同一共享根目录内的不同版本也串行安装，防止同时修改共享库、资源映射。
 网络文件系统的锁行为没有实际验证，推荐使用本地目录。
 
-`install-plan.json` 固定首次解析的全部文件和后处理声明。
-`instance.json` 保存计划的 SHA-256、游戏根目录名、安装状态、此次已下载与复用数量、派生文件哈希和错误信息。
-文件写入采用同目录临时文件、fsync、原子替换。计划文件校验不匹配或状态损坏时拒绝覆盖。
-目标非空且没有本工具安装记录时也拒绝安装，避免混入已有启动器目录。
+每版本的 `install-plan.json` 固定首次解析的全部文件和后处理声明。
+`instance.json` 保存计划 SHA-256、安装状态、下载/复用数量、派生文件哈希及错误信息；
+新布局的 minecraft_directory 为 `.`，旧记录的默认值仍是 minecraft。
+状态文件采用临时文件、fsync、原子替换；校验不符或记录损坏时拒绝覆盖。
+可以向已有启动器游戏根目录添加新版本，但同名版本目录存在且没有本工具记录时拒绝覆盖。
+已由其他受管理版本固定的共享文件，若本次计划要求不同内容，会在下载前报冲突。
+旧式 resources 映射也受冲突保护，确有冲突的历史版本应使用另一个游戏根目录。
 
 ## 阶段、失败和恢复
 
 首次安装流程：
 
-1. 获得实例锁，检查目录和状态。
-2. 获取、验证并保存固定安装计划。
+1. 获得共享根目录锁，检查该版本的目录和状态。
+2. 获取、验证并保存固定安装计划，先检查跨版本共享文件冲突。
 3. 标记 installing，执行有界并发下载和文件校验。
 4. 全部文件完成后解压旧式原生库，生成 virtual / resources 映射。
 5. 保存派生文件的哈希和大小，标记 installed。
@@ -116,7 +125,7 @@ Windows 使用 msvcrt 字节锁，其他受支持桌面系统使用 flock。
 
 ## 验证记录与支持边界
 
-96 项离线测试通过，包含 CLI 完整安装、离线 verify、文件修复、取消恢复、来源切换、布局迁移、
+102 项离线测试通过，包含 CLI 完整安装、离线 verify、文件修复、取消恢复、来源切换、布局迁移、
 任务并发上限、损坏 ZIP、路径穿越、符号链接、解压大小限制及实例锁。
 Ruff 检查、格式检查及 git diff --check 通过。
 合成端到端测试真实写入目录并展开 ZIP，但不等同于完整真实游戏版本的联网安装验收。

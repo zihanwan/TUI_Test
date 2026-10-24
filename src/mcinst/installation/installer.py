@@ -10,10 +10,10 @@ from mcinst.downloads.limits import SourceLimiter
 from mcinst.downloads.scheduler import BatchProgress, DownloadScheduler
 from mcinst.downloads.settings import DEFAULT_CONCURRENCY, DEFAULT_PER_SOURCE
 from mcinst.installation.errors import InstallationError
-from mcinst.installation.layout import game_root
 from mcinst.installation.models import InstallPlan, InstanceSpec
 from mcinst.installation.planner import InstallPlanService
 from mcinst.installation.postprocess import postprocess, validate_plan
+from mcinst.installation.repository import check_repository, check_shared_files, state_directory
 from mcinst.installation.state import (
     finish_thread,
     instance_lock,
@@ -69,19 +69,30 @@ class VanillaInstaller:
 
         try:
             with instance_lock(directory):
-                state = await finish_thread(load_state, directory)
+                check_repository(directory)
+                metadata = state_directory(directory, spec.minecraft_version, create=True)
+                state = await finish_thread(load_state, metadata)
                 if state is None:
+                    version_path = directory / "versions" / spec.minecraft_version
+                    if version_path.exists() or version_path.is_symlink():
+                        raise InstallationError(
+                            "版本目录已存在但没有安装记录，拒绝覆盖；请选择其他游戏根目录"
+                        )
                     report("planning")
                     plan = await InstallPlanService(self.catalog).plan(spec)
                     validate_plan(plan)
-                    record = await finish_thread(save_plan, directory, plan)
+                    await finish_thread(check_shared_files, directory, plan)
+                    record = await finish_thread(save_plan, metadata, plan)
                 else:
                     plan, record = state
                     if plan.spec != spec:
                         raise InstallationError(
-                            "目标目录的固定版本或平台与本次请求不同，请选择新实例目录"
+                            "该版本的固定平台或功能与本次请求不同，请选择其他游戏根目录"
                         )
+                    if record.minecraft_directory != ".":
+                        raise InstallationError("版本安装记录使用了旧布局，请先迁移")
                     validate_plan(plan)
+                    await finish_thread(check_shared_files, directory, plan)
                 # Change routing without changing pinned metadata, paths or hashes.
                 plan = InstallPlan.model_validate(plan.model_dump())
                 for artifact in plan.artifacts:
@@ -93,8 +104,8 @@ class VanillaInstaller:
                 record.downloaded_files = 0
                 record.reused_files = 0
                 try:
-                    await finish_thread(write_record, directory, record)
-                    minecraft = await asyncio.to_thread(game_root, directory, record)
+                    await finish_thread(write_record, metadata, record)
+                    minecraft = directory
                     await asyncio.to_thread(check_minecraft_root, minecraft)
                     report("downloading")
 
@@ -112,10 +123,10 @@ class VanillaInstaller:
                     record.reused_files = sum(f.status == "reused" for f in batch.files)
                     report("postprocessing")
                     record.derived_files = await finish_thread(
-                        postprocess, plan, minecraft, directory
+                        postprocess, plan, minecraft, metadata
                     )
                     record.status = "installed"
-                    await finish_thread(write_record, directory, record)
+                    await finish_thread(write_record, metadata, record)
                     return InstallResult(
                         directory=directory,
                         minecraft_directory=minecraft,
@@ -131,7 +142,7 @@ class VanillaInstaller:
                     )
                     record.error = str(exc) or type(exc).__name__
                     try:
-                        await finish_thread(write_record, directory, record)
+                        await finish_thread(write_record, metadata, record)
                     except Exception as state_error:
                         exc.add_note(f"无法保存失败状态：{state_error}")
                     raise

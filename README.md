@@ -17,9 +17,9 @@ uv run mcinst inspect 1.20.1
 uv run mcinst inspect 1.20.1 --source official --json
 uv run mcinst plan 1.20.1 --os linux --arch x86_64 --files
 uv run mcinst plan 1.20.1 --os windows --arch x86_64 --os-version 10.0 --json
-uv run mcinst install 1.20.1 --directory instances/vanilla-1.20.1-linux --os linux --arch x86_64 --os-version 6.0 --source official
-uv run mcinst verify instances/vanilla-1.20.1-linux
-uv run mcinst migrate-layout instances/vanilla-1.20.1-linux
+uv run mcinst install 1.20.1 --directory instances/.minecraft --os linux --arch x86_64 --os-version 6.0 --source official
+uv run mcinst verify instances/.minecraft 1.20.1
+uv run mcinst migrate-layout instances/vanilla-1.20.1-linux --directory instances/.minecraft
 uv run python -m mcinst --help
 ```
 
@@ -33,15 +33,15 @@ CLI 元数据查询当前不提供持久缓存或同源重试；不要把查询�
 单文件下载 API 已支持同源重试、来源回退、流式校验及原子提交，
 接口和边界见 [下载传输说明](docs/download-transfer.md)。
 
-`install` 创建独立实例目录，新实例游戏文件位于其 `.minecraft/` 子目录。
-JSON 与 JAR 同放在 `.minecraft/versions/<版本ID>/`，assets 与 libraries 位于游戏根目录。
-第三方启动器添加 Minecraft 游戏文件夹时选择 `.minecraft/`，而非含 instance.json 的实例外层。
-旧实例的 minecraft/ 仍可读取；migrate-layout 可离线更名为 .minecraft/。
+`--directory` 直接指定共享游戏根目录，例如 `instances/.minecraft`，不会再创建嵌套的 `.minecraft/`。
+多个版本放在同一根目录的 `versions/<版本ID>/` 内，JSON 与 JAR 同名并列；assets 和 libraries 跨版本复用。
+在 PCL、HMCL 中添加这个共享根目录，即可扫描其中的版本；版本隔离由启动器设置。
+安装记录存放在 `.mcinst/versions/<版本ID>/`。旧独立实例仍支持离线校验，可用 migrate-layout 合入共享根目录。
 格式依据和第三方适配边界见 [启动器兼容布局](docs/launcher-layout.md)。
 示例明确下载 Linux/x86_64 目标；为本机下载时可省略平台参数。
 默认总并发 16、每逻辑来源并发 8，可以通过 `--concurrency` / `--per-source` 调整。
 首次保存固定计划，重跑相同命令会复用已校验文件，补齐失败、缺失或损坏的文件与派生资源。
-`verify` 离线检查受管理文件。当前支持完整文件恢复，尚不支持 Range 字节级续传。
+`verify ROOT VERSION` 离线检查该版本受管理文件，只有一个受管理版本时 VERSION 可省略。当前支持完整文件恢复，尚不支持 Range 字节级续传。
 完整接口、状态和 Review 入口见 [Vanilla 安装说明](docs/vanilla-install.md)。
 
 `plan` 仅读取版本清单、版本详情和资源索引，不写实例目录。
@@ -65,7 +65,7 @@ uv run ruff format --check .
 测试运行器采用 Python 标准库 unittest，不额外依赖 pytest。
 `versions` / `inspect` / `plan` 可用于手动验证真实源，不作为每日离线测试的一部分。
 
-本次开发验证：96 项离线测试、Ruff 检查和格式检查通过，包含安装、恢复和新旧布局迁移。
+本次开发验证：102 项离线测试、Ruff 检查和格式检查通过，包含安装、恢复和新旧布局迁移。
 现有真实 1.20.1 实例的 3631 个文件在布局迁移前后均通过校验，第三方启动器启动尚未验证。
 Python 3.12 的最低版本验证及跨平台实际安装验证仍待完成。
 已有虚拟环境时，可以直接验证，避免触发 uv 联网解析：
@@ -99,6 +99,7 @@ Python 3.12 的最低版本验证及跨平台实际安装验证仍待完成。
 | `src/mcinst/installation/postprocess.py` | 受控原生库解压及资源映射 |
 | `src/mcinst/installation/state.py` | 固定计划、状态与进程锁 |
 | `src/mcinst/installation/verify.py` | 离线文件校验 |
+| `src/mcinst/installation/repository.py` | 共享根目录、版本状态定位与共享文件冲突检查 |
 | `src/mcinst/installation/layout.py` | 新旧根目录解析与离线布局迁移 |
 | `docs/install-plan.md` | 当前功能边界、数据流与 Review 说明 |
 | `docs/download-transfer.md` | 下载传输模块的接口、故障处理与 Review 说明 |
